@@ -58,7 +58,8 @@ cannot be verified, say so explicitly.
   `lejepa` from GitHub). Add packages with `uv pip install --python .venv/bin/python <pkg>`,
   and keep `requirements.txt` pinned to what is actually installed
   (`uv pip freeze --python .venv/bin/python`).
-- Work only inside this directory, and leave `runner/` alone: it is the runner itself.
+- Work only inside this directory, and leave `runner/` and the top-level `README.md`
+  alone: they are the runner and its guide for the person running the study.
   Don't install system packages or touch files elsewhere on the machine, and don't run git
   commands that write (commit, checkout, reset, stash): the runner commits after every
   phase and before every handoff.
@@ -305,7 +306,8 @@ controls (d, α, σ, arm) over the precomputed results. No server. Write it to
 moved into that blog, so keep it self-contained: it reads precomputed files under
 `blog/data/` and executes no Python when it renders.
 
-**README:** exact commands, seeds, environment, hardware, runtime.
+**`REPRODUCE.md`:** exact commands, seeds, environment, hardware, runtime. (Not
+`README.md`, which belongs to the runner.)
 
 If useful, use a general-purpose sub-agent to build the Quarto scaffolding against
 `results/schema.json` while you write the text, but integrate and check it yourself.
@@ -323,7 +325,7 @@ path and this checklist:
 - hypothesis verdicts follow from the CIs, and every tier claimed was actually run
 - every BibTeX entry resolves to a real paper with correct authors, year, and venue
 - the paper renders and is ≤ 15 pages
-- the README commands reproduce one figure from scratch
+- the commands in `REPRODUCE.md` reproduce one figure from scratch
 
 Fix the issues it finds, then write `gates/GATE_4.md` and `FINAL.md` (summary, issues
 fixed, known gaps), write `complete` to `gates/P4.status`, and end the run.

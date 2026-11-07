@@ -161,8 +161,9 @@ context is compacted. In short:
   start a background job and poll it.
 - Every number in any output comes from a script in this directory. Never fabricate
   findings, numbers, or citations.
-- Stay inside this directory, don't modify `runner/` (the runner itself), and don't run
-  git commands that write: the runner commits.
+- Stay inside this directory, don't modify `runner/` or the top-level `README.md` (the
+  runner and its guide), and don't run git commands that write: the runner commits. The
+  study's own reproduction guide is `REPRODUCE.md`.
 EOF
   # Turns the CLI's stream-json into one readable line per event for the progress log.
   cat > "$ST/activity.jq" <<'EOF'
