@@ -1,0 +1,15 @@
+data/
+.venv/
+logs/
+state/
+checkpoints/
+__pycache__/
+.pytest_cache/
+.quarto/
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.npy
+*.npz
+.DS_Store

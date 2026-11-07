@@ -1,0 +1,197 @@
+# Blog Writing Style
+
+## How much of this to read
+
+This file is ~3,300 words and most edits do not need all of it. Read to the job:
+
+| Job | Read |
+|---|---|
+| Writing a new post, or restructuring one | the whole file |
+| Editing prose in an existing post | *Which register*, *Shared rules*, and that post's register section |
+| A typo, a broken link, a single-sentence fix | none of it |
+| Running the checks in *Before you ship a post* | *Shared rules* and that post's register section |
+
+Read a register section whole when you read it at all. The calibration examples at the end
+of each are what make the register concrete; the rules above them under-determine it.
+
+Nothing here is relaxed by this index — a substantive edit still answers to every rule in
+the sections it names.
+
+## Which register
+
+Pick one before writing or editing a post.
+
+- **Register A — personal / old.** Claim headings, narrative spine, plain-English warm-up. Use it for personal essays, memoirs, and any post dated before 2025-08-28.
+- **Register B — recent technical.** Dry, numbered, list-first documentation. Use it for technical posts dated 2025-08-28 or later, and for new technical posts.
+
+Personal posts currently in Register A regardless of date: `cheapest-ladder-is-shortest`, `brian-ripley-rousseeuw-prize`, `nvidia-buys-the-pyg-team`, `first-industry-job`, `consciousness-recursive-prediction`. Do not convert those to Register B.
+
+These rules do **not** license a rewrite of the five legacy posts — `data-types`, `features-importance-after-clustering`, `poor-persons-bayesian`, `post-with-code`, `working-with-quarto` (the `LEGACY_NO_ENV` set in `scripts/check_posts.py`). Quarto keys frozen output on an md5 of the source, so even a one-word prose fix there invalidates the `_freeze/` record and makes the next project render try to execute a post that has no environment to execute in. To bring one of those up to either register, build it a venv + kernel + `requirements.txt` and drop its `LEGACY_NO_ENV` entry first, as AGENTS.md describes.
+
+The purpose sentence and one-word closer below have been applied to the posts with no `_freeze/` record — the ones a project render rebuilds without executing anything (50 of 113 at the last count). The freeze-backed posts have **not** been swept. Editing one invalidates its frozen output; for a prose-only edit `make freeze-realign SLUG=<slug>` accepts the change without re-executing the post (AGENTS.md, *Checks and lint*), so that sweep no longer needs the venvs to hand. `tensor-factorizations` and `uses-of-tensor-factorizations` are the exceptions — they already carry both, being where the convention started. Count the two sets before sizing that sweep (`ls -d posts/*/`, `ls -d _freeze/posts/*/`) rather than trusting these numbers, which go stale with every new post. Do not assume the corpus is uniform yet.
+
+## Shared rules (both registers)
+
+- **Purpose sentence first.** The first prose sentence of the body says what the post is for, in plain English — what question it answers, or what the reader will be able to do afterwards. It sits immediately after the `![Title](./cover.png)` line (and after any "Made with…" credit block), before the first heading. This is not a licence for the `In this post we will…` / `This article explores…` formula: say the thing, don't announce that you are about to. Where a post already opens on a sentence that does this, leave it.
+- **Give the opening an on-ramp.** Banning the "in this post we will…" preamble is not
+  licence to open on a cold assertion. A bare claim asks the reader to care before
+  giving them a reason to. Open on something the reader already does or notices, say
+  why it is strange rather than obvious, and only then bring in the evidence and the
+  question the post answers — and do the same at the top of a section that reaches for
+  a new idea. "First principles" means *deriving* the framing from what the reader
+  already has, not citing it. Budget words for this; go over a length
+  target to keep it.
+- **One-word closer last.** Every post ends on a single line of one-word sentences that summarises it and lands its consequence: eight to twelve tokens, each a single capitalised word ending in a period, reading as two to four telegraphic clauses. It is a *new* final line — the existing last paragraph stays. It goes before `## References` where one exists.
+
+  ```
+  Tensors. Outrun. Matrices. Factorizations. Compress. Inverses. Require. Products. Choose. First.
+  Don't. Flatten. Modes. Carry. Meaning. Ranks. Trade. Memory. Factorizations. Almost. Always.
+  ```
+
+  It must be true to *this* post's argument. A closer that merely restates the title is worse than none.
+- **Two or three concepts per post, at most.** One main idea, plus one or two that
+  support it. Name them in a sentence each before writing; if you cannot, the post has
+  no spine yet. A fourth idea that needs its own definition, figure, or worked example
+  is a second post — link to it rather than folding it in. This is a budget on ideas,
+  not on length: a post may take as many words as one idea needs. A survey that
+  names eight techniques and explains none of them has no spine.
+- **Plain English, both registers.** Dry is not abstract. Register B's "do not try to make the text engaging" governs tone, not vocabulary — it never licenses writing in nouns.
+  - Everyday words over Latinate ones: "use" not "utilize", "breaks" not "invalidates", "stops" not "terminates", "throws away" not "discards".
+  - Active voice, and a verb doing the work: "the loop stops" beats "termination occurs".
+  - Short sentences. If a heavy clause sits between a subject and its verb, split it.
+  - Compress by cutting sentences, not by packing an argument into a noun phrase. "Making delegation a tool call rather than a special case means it inherits the error path" is shorter than the plain version and much harder to read.
+  - A jargon label — "least privilege", "blast radius", "context isolation", "state machine" — needs a plain restatement beside it, or a plain phrase in its place. Domain vocabulary lifted straight out of the source docs is how this creeps in.
+  - Name the thing. Vague universals, hedges, and signposts that stand in for a noun are filler: `everything` / `everything else`, `nothing here` / `nothing below` / `nothing in this`, `nothing else`, `the rest` / `the rest of this post`, `the whole` / `the entire` / `the whole point` / `the whole story`, `the same` when it only restates a referent already named (`the same sequence`, `the same loop`). Replace with the actual set, the specific object, or delete. Keep the word when it *is* the set (`sequence everything`; `the whole conversation` sent every call) or when identity is the claim (`the same path in another worktree`).
+  - Deixis is not a sentence. `below` and `above` are for space, numbers, and the post's own metaphor — never for pointing at your own document. Cut the navigation pointer: `the sections below`, `the figure below`, `the table above`, `the code above`, `the loop below`, `the workhorse above`. A second announcement of what the post will cover is the banned `in this post we will…` in a new hat: the purpose sentence already did that job, so delete the pointer and let the sections speak. **Keep** a numeric threshold (`above 272K tokens`, `below 1 is faster than real time`), a spatial or ranking sense (`ranks above Eleven v3`), and any post whose argument *is* a hierarchy — in `consciousness-recursive-prediction` and `cheapest-ladder-is-shortest`, `the rung below` and `well below where the brain lands` are the mechanism, and cutting them breaks the post.
+  - `each` and `across` earn their place per item and per span. Keep `each` where it genuinely quantifies one-of-many (`each fold`, `each token $t_i$`, `hands each piece to a worker`). Cut it where a set already named is being redistributed for no gain: `each of these passes a demo` → `all eight pass a demo`; `Each needs its own limit` → `All three need separate limits`; `give each agent a directory` → `give agents separate directories`. Keep `across` for real spread over a dimension (`averaged across the seven test sets`, `comparable across releases`); cut it where it is a vague `in` or `over` (`zero across calls` → `zero on calls`).
+  - `a single` is a contrast, not an intensifier. Keep it where one really is set against many (`a single machine or a distributed cluster`) and in compounds (`single-vendor`, `single-cell`). Cut it where `one` says the same thing.
+  - Figure captions name what the panel shows, not the reading order. Cut `from left to right`, `left-to-right`, `top to bottom` as a tour. Keep `Left:` / `Right:` when they label two panels.
+  - Throat-clearing: the next sentence usually already does the work. Cut `the honest` (`the honest reading`, `the honest part`, `the honest headline`, `stated honestly`), `that is the point` / `the point is` / `this is the point of`, `worth stating` / `worth naming` / `worth noting` / `worth holding onto`, `Concretely,`, `does all the work`, `Keep this result in mind while reading the rest of the post`, `deliberately *not*` as a preamble before saying what the post is, and `which is why` / `which is what` when they restate the previous sentence. `by construction` stays in math ("zero by construction"); cut it when it only means "because we set it that way". Cut the contrast formula `X is not Y — it is Z` when Y was never in play. Cut `rather than` / `instead of` when the rejected alternative was never in play; keep when both sides are live (the compression example above that uses `rather than` stays). Cut intensifiers `exactly` / `precisely` / `genuinely` (`exactly zero` in math stays). Cut `actually` as a hedge. Cut `this post` / `this post uses` as self-reference throat-clearing; keep when it disambiguates this post from a companion, or as the data-situation line. The live form is the purpose sentence's own second half — `X does Y, and this post covers/builds/explains/sets out Z`, or a `This post compares…` sentence a few lines under one that already said so. Say Z as a claim instead: `Clustering has no labels to tune against, so this post covers which algorithms have hyperparameters worth tuning` → `Clustering has no labels to tune against. Only some algorithms have hyperparameters worth tuning.` Where the sentence merely repeats a purpose sentence already above it, delete it outright.
+  - Old marketing diction is the same vice: `utilize`, `facilitate`, `seamless`, `robust` as praise, `powerful`, `journey`, `best practices`, `In this post/guide/article, we'll explore`.
+  - **`we` is the house voice and is not on this list.** It runs well above English rates here, and deliberately so — `you` sits *below* English rates. Do not sweep it, and do not let a rewrite that dodges one of the words above quietly convert `we` into `you` or into a passive.
+  - These rules are about *glue*, not a word ban. A word that carries the argument stays even where it is frequent: identity claims (`the same tool with the same arguments is stuck`), math (`exactly one of K clusters`, `exactly-once semantics`), live contrasts (`reported rather than confirmed`), and a post's controlling metaphor. If the rewrite needs a nominalisation, a passive, or a second read, keep the original word — compress by cutting sentences, not by packing an argument into a noun phrase.
+- **Never invent first-person detail.** Personal essays land through specifics the author actually has. Write a scene in the second person or as a hypothetical someone; do not fabricate memories or citations.
+- **Always situate the data.** Any post that uses, plots, or mentions a dataset must say where it came from before doing anything with it: provenance, collector and motive, what this post asks of it, what a wrong answer would cost, and why this method fits this data. Synthetic data is not exempt: say it is synthetic, give the generating process, and say what real situation it stands in for.
+- **Do not change executable cell code** when restyling prose. Widgets, freeze figures, and `{python}` / `{pyodide}` bodies stay as they are.
+- **Check the post against itself before shipping.** Three defects live *between*
+  artifacts, so every per-artifact check — the render, `make check-posts`, lint — passes
+  while the post argues against itself. Each has been shipped here at least once.
+  - *An artifact that teaches the opposite of the prose.* Enumerate every instruction
+    the post aims at the reader ("raise n to 12 and watch the band rise"), execute each
+    one, and confirm the stated consequence. Watch for artifacts that appear only at the
+    setting the post recommends. When a widget contradicts the prose, suspect the model
+    behind it before the rendering.
+  - *A worked example that contradicts the conclusion.* A sample transcript can parse,
+    compute correctly, and still show the opposite of what the results block and the
+    close both claim. Grep the distinctive string — a case id, a claim, a number — and
+    read every hit in argument order.
+  - *A heading that contradicts its own section.* Read the headings alone, in order,
+    reading every word through the post's dominant metaphor rather than its literal
+    sense: in a post built on ladders, a threshold "below" the old one reads as a lower
+    bar, not an earlier one.
+- **References last.** If the post cites papers, books, docs, datasets, or other posts as sources, end with a `## References` section: a short bulleted list of those sources (author/year or title + link). Collect only sources the post already names or links — do not invent citations. Skip the section when there are none. This heading is an allowed topic label in Register A. Inline links in the body may stay; the list at the end is the bibliography.
+
+---
+
+## Register A — personal / old
+
+Apply this register to what you are already writing in that voice. It is not a mandate to sweep the older corpus.
+
+### Spine
+
+**Give every post a spine.** A post is one argument, not a pile of sections. Name the core idea in a sentence before writing; every section advances it.
+
+- **Open on the core idea and the stakes** — the question, why it's non-obvious, what changes once the reader knows. The purpose sentence (see Shared rules) carries this and comes first; it is still not a "in this post we will…" preamble, and in an essay it stays in the essay's voice rather than sliding into guide voice.
+- **Headings state claims, not topics** — `## Efron's bootstrap is a weighted bootstrap in disguise`, not `## Background`, so the ToC reconstructs the argument.
+- **Each section earns the next.** If two could swap without damage, merge or cut one. `###` is for steps within one idea, not new ideas.
+- **Stitch every seam.** A section's first sentence links back to the previous result or the core idea; its last names the unresolved thing the next section answers — the gap, not the mechanics ("next, some code"). Same for code blocks and figures: a sentence before saying what it will show, one after saying what actually happened, quoting the numbers it produced. If an opening sentence reads identically with the previous section deleted, the seam isn't stitched.
+- **Close by returning to the core idea** — restate the opening claim now that it's earned, what it buys, where it stops holding. Not a summary of sections. The one-word closer (see Shared rules) is the line after that close; if the post has sources, `## References` follows both.
+- **Caveats inline**, as a short section where the objection occurs (`## Caveat: the uniform is the posterior, not the prior`) — not a "Limitations" bin at the end.
+
+### Structure
+
+- The first time a section reaches for a new idea, mechanism, or dataset, write 2–4 sentences of plain-language warm-up before the code block, diagram, or example: what problem this solves, why it matters, and what the reader should hold in mind before seeing the mechanics.
+- After that, one sentence before and one after carries it — a follow-up cell, a variation on the last one, a plot of a result you already motivated. If a reader can predict what the block does from the prose above it, one sentence is the right amount.
+- Never open a section with a code block, bullet list, or table. Give context first, in prose.
+- Introduce a concept from first principles before naming its technical term — explain the idea, then attach the label to it, not the other way around.
+
+### Sentences and words
+
+- Prefer short, direct sentences. Split the ones that stack clauses until the reader loses the subject before reaching the verb — two or more nested subordinate clauses is the tell.
+- Long sentences are allowed when they stay one beat: an em-dash that glosses a term, or hangs a concrete case off an abstract claim. Both calibration examples below do that. Keep those. Cut the sentence you have to read twice, not the sentence that is long.
+- Editing an existing Register A post, match its register. These rules tighten prose; they do not convert a post to a different voice. Personal essays especially must not drift into guide voice — claims turning into requirements lists, headings into section labels.
+- Use everyday words over formal/Latinate ones where a simpler word exists: "use" not "utilize," "help" not "facilitate," "start" not "commence," "about" not "approximately."
+- Default to active voice ("the function returns X") over passive ("X is returned by the function").
+- One idea per paragraph. If a paragraph covers two ideas, split it.
+
+### Tone
+
+- Write like you're explaining this to someone smart but unfamiliar with the topic — not like documentation for someone who already knows the shape of the solution.
+- Avoid jargon without a plain-language restatement nearby the first time it's used.
+
+### Calibration examples
+
+Match this tone and pacing — motivate the problem, define the term plainly, then move to mechanics:
+
+**Example: cross-validation**
+A model can fit the data it was trained on almost perfectly and still fail on new data — this is the gap between memorizing and generalizing. Cross-validation is a way to estimate how a model will perform on unseen data using only the data you already have. The idea: split your dataset into k equal parts ("folds"). Train the model on k-1 of them, and test it on the one you held back. Repeat this k times, rotating which fold is held out, then average the results.
+
+**Example: the bootstrap**
+When you compute a statistic from a sample — a mean, a regression coefficient — you get one number, but you rarely know how much that number would vary if you'd drawn a different sample. The bootstrap estimates that variability without new data: it repeatedly draws new samples from your original sample, with replacement, and recomputes the statistic each time. The spread of those recomputed values approximates the sampling distribution you'd otherwise need new data to observe.
+
+Avoid: opening with opinion, meandering into the topic before defining it, assuming the reader already has context, or diving into code/examples before explaining the problem in plain language.
+
+---
+
+## Register B — recent technical
+
+Optimize for rapid transfer of technical information. Do not try to make the text engaging.
+
+### Tone
+
+- Strictly utilitarian, objective, and dry.
+- No narrative flair, storytelling, poetic language, or conversational transitions.
+- No "in this post we will…" preamble. Start with the definition or procedure.
+
+### Headings
+
+- Use **topic labels**, not claims: `## Eigendecomposition`, not `## $A = PDP^{-1}$ is that idea written as a formula`.
+- Enable Quarto numbering in frontmatter. Do **not** put `1.` / `1.1` in the heading text (that double-numbers):
+
+```yaml
+format:
+  html:
+    toc: true
+    number-sections: true
+```
+
+- `##` is a top-level topic. `###` is a subtopic of the current `##`.
+
+### Structure
+
+- Default to bulleted or numbered lists whenever presenting multiple concepts, pros/cons, or sequential steps.
+- Remaining paragraphs: one or two sentences.
+- Isolate code, commands, and display math in fenced blocks.
+- End when the information is delivered. No *paragraph* closer that restates an opening claim — the one-word closer (see Shared rules) is the single exception, and it is required. The last section is `## References` when the post has sources, with the closer immediately above that heading.
+- Caveats go in a labelled section (`## Constraints`, `## Guarantees`) where they belong, not as a narrative return.
+
+### Calibration fragment
+
+```markdown
+## Eigenvectors and eigenvalues
+
+Multiplying by a matrix $A$ usually rotates and scales a vector.
+
+- **Eigenvector** $v$: a direction that $A$ only scales: $Av = \lambda v$.
+- **Eigenvalue** $\lambda$: the scale factor along $v$.
+
+## Example matrix
+
+This post uses the synthetic matrix
+
+$$
+A = \begin{bmatrix} 4 & 1 \\ 2 & 3 \end{bmatrix}.
+$$
+
+It is a two-class linear map chosen so the eigenvalues are exactly $5$ and $2$.
+```
