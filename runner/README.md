@@ -28,7 +28,7 @@ on the agent's files. The blog post moves into the blog once the study is done.
 
 2. `cd ~/Code/stein-study/runner && ./stein.sh preflight`. It checks the workspace, the
    Python 3.12 venv (torch, the scientific stack, `lejepa` from GitHub at a pinned commit)
-   and the 444 MB of data, all already built. Then it checks the key with a free API call
+   and about 450 MB of data, all already in place. Then it checks the key with a free API call
    and makes one Haiku test call through the study's own flags (well under a cent). Rerun
    it until it ends with `preflight passed`.
 
