@@ -2,8 +2,9 @@
 
 An unattended study run with `claude -p`. It tests Stein-discrepancy regularisers for
 JEPA, V-JEPA-style temporal prediction and, optionally, VAEs, on real image data
-(3DShapes, CIFAR-10, Moving MNIST). The output is a 15-page paper and a draft blog post.
+(3DShapes, CIFAR-10, Moving MNIST). The output is a paper and a draft blog post.
 `runner/` holds the runner; everything else in this folder is the study's workspace.
+Billing goes only to an Anthropic API key, never your claude.ai plan, capped at $90.
 
 ## Papers
 
@@ -13,7 +14,6 @@ JEPA, V-JEPA-style temporal prediction and, optionally, VAEs, on real image data
   collapsing, and how it differs from a VAE's KL term. Source: `explainer/stein-jepa-aside.qmd`.
 - [Blog post](blog/index.html), draft; and [`REPRODUCE.md`](REPRODUCE.md), the exact commands to reproduce
   every number.
-Billing goes only to an Anthropic API key, never your claude.ai plan, capped at $90.
 
 ## What to do
 
