@@ -1,0 +1,17 @@
+# P2 mini-pilot: choose the information-bottleneck levels (sigma) and time CIFAR at 2000 steps.
+base: {tier: shapes, d: 12, alpha: 1.0, law: uniform, device: mps, seed: 0, steps: 2000}
+runs:
+  - {arm: sigreg, lam: 0.05, sigma: 0.5}
+  - {arm: sigreg, lam: 0.05, sigma: 1.0}
+  - {arm: sigreg, lam: 0.05, sigma: 2.0}
+  - {arm: ema, lam: 0.0, sigma: 0.5}
+  - {arm: ema, lam: 0.0, sigma: 1.0}
+  - {arm: ema, lam: 0.0, sigma: 2.0}
+  - {arm: vicreg, lam: 5.0, sigma: 0.5}
+  - {arm: vicreg, lam: 5.0, sigma: 1.0}
+  - {arm: vicreg, lam: 5.0, sigma: 2.0}
+  - {arm: mmd, lam: 10.0, sigma: 0.5}
+  - {arm: mmd, lam: 10.0, sigma: 1.0}
+  - {arm: mmd, lam: 10.0, sigma: 2.0}
+  - {tier: cifar, arm: sksd, lam: 5.0, sigma: 0.0}
+  - {tier: cifar, arm: sigreg, lam: 0.05, sigma: 0.0}
