@@ -1,0 +1,229 @@
+{
+ "shapes/vicreg": {
+  "level": {
+   "lam": 5.0
+  },
+  "score": 0.3912116637601096,
+  "metric": "content_r2"
+ },
+ "shapes/sigreg": {
+  "level": {
+   "lam": 0.05
+  },
+  "score": 0.5369693231901,
+  "metric": "content_r2"
+ },
+ "shapes/sksd": {
+  "level": {
+   "lam": 1.0
+  },
+  "score": 0.5377435959063215,
+  "metric": "content_r2"
+ },
+ "shapes/ksd": {
+  "level": {
+   "lam": 0.2
+  },
+  "score": 0.7054636531922586,
+  "metric": "content_r2"
+ },
+ "shapes/mmd": {
+  "level": {
+   "lam": 10.0
+  },
+  "score": 0.6099243502363029,
+  "metric": "content_r2"
+ },
+ "shapes/ema": {
+  "level": {
+   "lam": 0.0,
+   "ema_tau": 0.999
+  },
+  "score": 0.5054330038745309,
+  "metric": "content_r2"
+ },
+ "shapes/oracle": {
+  "level": {
+   "lam": 0.1
+  },
+  "score": 0.43760544581282723,
+  "metric": "content_r2"
+ },
+ "shapes/ksd@uniform-prior=uniform": {
+  "level": {
+   "lam": 0.2
+  },
+  "score": 0.6290510157669068,
+  "metric": "content_r2"
+ },
+ "shapes/ksd@laplace-prior=laplace": {
+  "level": {
+   "lam": 1.0
+  },
+  "score": 0.3785536371175813,
+  "metric": "content_r2"
+ },
+ "shapes/sksd@uniform-prior=uniform": {
+  "level": {
+   "lam": 5.0
+  },
+  "score": 0.22623661163252567,
+  "metric": "content_r2"
+ },
+ "shapes/sksd@laplace-prior=laplace": {
+  "level": {
+   "lam": 5.0
+  },
+  "score": 0.3272027524429796,
+  "metric": "content_r2"
+ },
+ "shapes/sigreg@laplace": {
+  "level": {
+   "lam": 0.01
+  },
+  "score": 0.5837179709346918,
+  "metric": "content_r2"
+ },
+ "shapes/sksd@laplace": {
+  "level": {
+   "lam": 1.0
+  },
+  "score": 0.6286500142595522,
+  "metric": "content_r2"
+ },
+ "shapes/ksd@laplace": {
+  "level": {
+   "lam": 0.2
+  },
+  "score": 0.853123175493528,
+  "metric": "content_r2"
+ },
+ "shapes/mmd@laplace": {
+  "level": {
+   "lam": 10.0
+  },
+  "score": 0.5773248989439433,
+  "metric": "content_r2"
+ },
+ "shapes/oracle@laplace": {
+  "level": {
+   "lam": 0.02
+  },
+  "score": 0.5237732689098533,
+  "metric": "content_r2"
+ },
+ "temporal/ema": {
+  "level": {
+   "lam": 0.0,
+   "ema_tau": 0.99
+  },
+  "score": 0.31989221749877994,
+  "metric": "content_r2"
+ },
+ "temporal/ema+sksd": {
+  "level": {
+   "lam": 5.0
+  },
+  "score": 0.2901797536211221,
+  "metric": "content_r2"
+ },
+ "temporal/ema+sigreg": {
+  "level": {
+   "lam": 0.05
+  },
+  "score": 0.21375693649449407,
+  "metric": "content_r2"
+ },
+ "temporal/sksd": {
+  "level": {
+   "lam": 1.0
+  },
+  "score": 0.553100353221934,
+  "metric": "content_r2"
+ },
+ "temporal/vicreg": {
+  "level": {
+   "lam": 1.0
+  },
+  "score": 0.4075757994002795,
+  "metric": "content_r2"
+ },
+ "cifar/vicreg": {
+  "level": {
+   "lam": 5.0
+  },
+  "score": 0.32989999999999997,
+  "metric": "class_acc"
+ },
+ "cifar/sigreg": {
+  "level": {
+   "lam": 0.05
+  },
+  "score": 0.3377,
+  "metric": "class_acc"
+ },
+ "cifar/sksd": {
+  "level": {
+   "lam": 5.0
+  },
+  "score": 0.3427,
+  "metric": "class_acc"
+ },
+ "cifar/ksd": {
+  "level": {
+   "lam": 0.2
+  },
+  "score": 0.3643,
+  "metric": "class_acc"
+ },
+ "cifar/mmd": {
+  "level": {
+   "lam": 10.0
+  },
+  "score": 0.3427,
+  "metric": "class_acc"
+ },
+ "cifar/ema": {
+  "level": {
+   "lam": 0.0,
+   "ema_tau": 0.999
+  },
+  "score": 0.3463,
+  "metric": "class_acc"
+ },
+ "vae/betavae": {
+  "level": {
+   "lam": 0.2
+  },
+  "score": 0.3284293802122646,
+  "metric": "content_r2"
+ },
+ "vae/ksd": {
+  "level": {
+   "lam": 10.0
+  },
+  "score": 0.33277752621320067,
+  "metric": "content_r2"
+ },
+ "vae/mmd": {
+  "level": {
+   "lam": 20.0
+  },
+  "score": 0.33616481177696833,
+  "metric": "content_r2"
+ },
+ "vae/ksd@laplace-prior=laplace": {
+  "level": {
+   "lam": 2.0
+  },
+  "score": 0.4952704888933519,
+  "metric": "content_r2"
+ },
+ "vae/ksd@laplace": {
+  "level": {
+   "lam": 2.0
+  },
+  "score": 0.5185518792154004,
+  "metric": "content_r2"
+ }
+}

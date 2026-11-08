@@ -173,3 +173,8 @@ def slice_membership():
             key = cfg_hash(resolve({**c, "seed": -1}))
             out.setdefault(key, []).append(name)
     return out
+
+
+def heldout_tiny():
+    """Smoke test of handoff 2: first config of each block, 1 seed, 50 steps (never reported)."""
+    return [{**blk[0], "seed": HELD_SEEDS[0], "steps": 50} for _, blk in heldout_blocks()]

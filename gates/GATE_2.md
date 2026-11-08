@@ -1,6 +1,6 @@
 # GATE 2 — Sweep and analysis
 
-Status: **in progress**. Session 1 (2026-11-08) handed tuning to the runner (handoff 1 of 2).
+Status: **in progress**. Session 1 handed off tuning (handoff 1, done); session 2 handed off the held-out sweep (handoff 2).
 
 ## Done
 - Read GATE_0/GATE_1. Reviewed stein/train.py, stein/sweep.py, results/schema.json.
@@ -16,6 +16,28 @@ Status: **in progress**. Session 1 (2026-11-08) handed tuning to the runner (han
 - `jobs/P2.sh` (handoff 1) runs `tune` and then `select_tuning`.
   - Tested on `tune_tiny`: 6 runs at 50 steps, one per tier, 0 failures.
   - The smoke-test runs and their outputs were deleted afterwards.
+
+- **Handoff 1 (tuning) finished.** Exit 0 after 1.4 h; 192/192 runs, 0 failed (`logs/compute-P2-1.log`).
+  - `results/tuning.parquet`, `results/tuning_selected.json` (32/32 slots), `results/tuning_table.md`.
+  - Measured rate: 26 s/run effective. Wall clock ≈ 1.04 × (sum of per-run times / 6).
+  - Per-run time by arm (`results/tuning.parquet`):
+    - 3DShapes: 66–110 s, sliced KSD 227 s;
+    - temporal: 136–183 s, sliced-KSD arms 314–330 s;
+    - CIFAR: 108–197 s, sliced KSD 310 s;
+    - VAE: 93–108 s.
+- **Selected levels** (`results/tuning_table.md`):
+  - 3DShapes base: VICReg 5, SIGReg 0.05, sliced KSD 1, KSD 0.2, MMD 10, EMA τ 0.999, oracle 0.1.
+  - Matched priors: KSD-uniform 0.2, KSD-Laplace 1, sliced-KSD-uniform 5, sliced-KSD-Laplace 5.
+  - Laplace law: SIGReg 0.01, sliced KSD 1, KSD 0.2, MMD 10, oracle 0.02.
+  - Temporal: EMA τ 0.99, ema+sksd 5, ema+sigreg 0.05, sliced KSD 1, VICReg 1.
+  - CIFAR: VICReg 5, SIGReg 0.05, sliced KSD 5, KSD 0.2, MMD 10, EMA τ 0.999.
+  - VAE: β 0.2, KSD-AE 10, MMD-AE 20; Laplace law: KSD-AE (Laplace prior) 2, KSD-AE (Gaussian prior) 2.
+- **Handoff 2.** `jobs/P2.sh` now runs `python -m stein.sweep heldout` → `results/heldout.parquet`.
+  - 495 runs (99 configs × 5 seeds).
+  - Estimate from the measured per-arm times, cumulative in priority order: H1 0.84 h, H4 1.18, H2 1.85, H3 2.31,
+    H5 2.59, CIFAR 2.87, H6 **3.0 h**.
+  - Allowance: 4.6 h left, which is 3.2 h after the 30% margin, so all tiers are kept.
+  - Smoke-tested on `heldout_tiny`: 7 runs, one per block, at 50 steps, 0 failures. The outputs were deleted.
 
 ## Decisions
 - **Seeds.**
@@ -75,11 +97,26 @@ Status: **in progress**. Session 1 (2026-11-08) handed tuning to the runner (han
   measured in handoff 1.
 
 ## Problems
-- None yet.
+- **Several selections sit at the lowest λ of their grid**:
+  - 3DShapes: sliced KSD 1, KSD 0.2, KSD-uniform 0.2;
+  - Laplace law: SIGReg 0.01, oracle 0.02;
+  - VAE: β 0.2, MMD-AE 20, and both Laplace-law KSD-AEs at 2.
+  - A lower λ might score higher still. There was no budget to extend the grids, because matched tuning would need
+    every arm extended, so this is reported as a limitation.
+- **The tuning runs show a strong λ–leakage trend** (validation seeds). Higher λ gives more linear nuisance leakage
+  for every Gaussian-target arm on 3DShapes, for example:
+  - KSD: 0.003 → 0.58 → 0.68;
+  - sliced KSD: 0.03 → 0.53 → 0.56;
+  - SIGReg: 0.01 → 0.29 → 0.41.
+  - Because the selection favours content R², it tends to pick the low-λ levels with low leakage. The tuned λ
+    therefore matters for H1, and the analysis must report this trend from `results/tuning.parquet`. It is
+    validation data, not held-out data.
+- **The EMA arm's seeds disagree at τ = 0.99 and τ = 0.999** (content R² 0.60 vs 0.18, and 0.63 vs 0.38). EMA is
+  the least stable arm.
 
 ## Next
-- After handoff 1:
+- ~~After handoff 1~~ (done):
   - check `logs/compute-P2-1.log` and `results/tuning_selected.json`, and measure the rate;
   - point `jobs/P2.sh` at `heldout` (out `results/heldout.parquet`); test on a tiny slice; hand off 2.
-- After handoff 2: write `stein/analyze.py` (seed-level 95% bootstrap CIs, hypothesis contrasts), give the verdicts,
+- `stein/analyze.py` is written and was smoke-tested on the tuning data, with its outputs deleted afterwards. After handoff 2: run `.venv/bin/python -W ignore -m stein.analyze`, which writes `results/analysis.md`, `summary.parquet` and `contrasts.parquet`. Then extend `results/schema.json` with these files, (seed-level 95% bootstrap CIs, hypothesis contrasts), give the verdicts,
   and finalise this file.
