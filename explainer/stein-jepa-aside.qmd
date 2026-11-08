@@ -1,0 +1,107 @@
+---
+title: "Why Stein Regularisation Helps a JEPA"
+subtitle: "Embeddings, Gaussian priors, and the VAE analogy"
+date: 2026-11-08
+format:
+  typst:
+    papersize: us-letter
+    margin:
+      x: 0.8in
+      y: 0.7in
+    fontsize: 10pt
+    number-sections: false
+    toc: false
+---
+
+```{=typst}
+#set par(justify: false, leading: 0.5em, spacing: 0.7em)
+#show heading.where(level: 1): set text(size: 13pt)
+#show table: set text(size: 9pt)
+#set table(inset: 6pt)
+```
+
+**The central idea.** A JEPA learns by predicting representations of related inputs. A Stein penalty can keep those representations from collapsing by encouraging their overall distribution to resemble a Gaussian. This resembles a VAE's normal-prior penalty, but the two penalties act on different distributions.
+
+# 1. What problem does the penalty solve?
+
+Imagine two pictures of the same red object, with different backgrounds. An encoder converts each image into an *embedding*: a short vector of numbers. A joint-embedding predictive architecture (JEPA) learns to predict one view's embedding from the other. Ideally, the vector retains the shared object properties and ignores the changing background.
+
+Prediction alone admits a useless shortcut: output the same vector for every image. The predictions then agree, but the embeddings distinguish nothing. This is *representation collapse*. Distributional regularisation is one way to discourage it; other JEPA designs use a slowly updated target encoder and additional training choices.
+
+For the distribution-regularised version, the objective is schematically
+
+$$
+\mathcal L = \mathcal L_{\mathrm{prediction}} + \lambda R(z_1,\ldots,z_B).
+$$
+
+Here, $B$ is the batch size, $R$ measures distributional mismatch, and $\lambda$ sets its strength. Prediction encourages agreement about shared information; the regulariser encourages a spread-out embedding cloud. Neither objective explicitly labels a feature as useful or irrelevant.
+
+# 2. What does Stein's method contribute?
+
+Stein's method characterises distributions through identities. For a one-dimensional standard normal variable $Z$, suitable smooth functions $h$ obey
+
+$$
+\mathbb E[h'(Z)-Zh(Z)] = 0.
+$$
+
+Think of this as a family of statistical checks: a normal distribution passes them in expectation. A *kernel Stein discrepancy* (KSD) combines such checks using a kernel, a function comparing pairs of points. It gives a mismatch criterion that can be estimated from a batch and differentiated to train the encoder [1].
+
+KSD needs samples from the embedding distribution and the target's *score*, $\nabla_z\log p(z)$. For a standard multivariate Gaussian, that score is simply $-z$. It does **not** need the unknown density of the embeddings. Full KSD compares vectors directly; sliced variants work through projections. Kernel and estimator choices matter: a small empirical discrepancy is not an unconditional guarantee of a correct distribution [2].
+
+# 3. Is this like the VAE regulariser?
+
+Yes, but the object being regularised differs [3].
+
+| | Standard Gaussian VAE | Deterministic JEPA with KSD |
+|:--|:--|:--|
+| Encoder output | A mean and variance for each input | One vector for each input |
+| Regularised object | Each input's distribution $q(z\mid x)$ | The overall embedding distribution $q(z)$ |
+| Penalty | KL divergence to the prior | Estimated Stein discrepancy to the prior |
+| Other objective | Reconstruct the input | Predict a related representation |
+
+The closer autoencoder analogy is a Wasserstein autoencoder, which matches the aggregate encoded distribution to a prior [4]. A Gaussian-shaped cloud can still encode individual inputs very precisely; matching its shape alone does not impose the VAE's per-input information penalty.
+
+```{=typst}
+#pagebreak()
+```
+
+# 4. Why not just use KL divergence?
+
+For distributions with suitable densities,
+
+$$
+D_{\mathrm{KL}}(q\Vert p)
+=\mathbb E_{z\sim q}[\log q(z)-\log p(z)].
+$$
+
+The Gaussian target density $p$ is known. In a deterministic JEPA, the embedding density $q$ generally is not: the encoder supplies points, not their probabilities. Treating a finite batch as a discrete empirical distribution does not solve this; its KL divergence to a continuous Gaussian is infinite. KSD instead provides a usable sample-based discrepancy estimate.
+
+In a VAE, each $q(z\mid x)$ is explicitly parameterised as a Gaussian, so its KL to a standard Gaussian has a closed form [3]. One could give JEPA a stochastic encoder and use that penalty, but this changes both the model and what is regularised. Alternatively, one could estimate the aggregate density or density ratio and approximate KL, adding estimation assumptions and difficulty.
+
+Two tempting shortcuts fail. Fitting a Gaussian to the batch and computing its KL checks only mean and covariance, missing non-Gaussian structure. Minimising only $-\log p(z)$ drops the $\log q(z)$ term; for a standard Gaussian it simply pulls all embeddings toward zero, encouraging collapse. **KSD is convenient because samples are available; it is not universally superior to KL.**
+
+# 5. What does this mean for training?
+
+The companion study [5] asks whether preventing collapse also removes *nuisance*: factors such as background colour that are irrelevant to the chosen task. Its results illustrate why those are separate questions.
+
+At the reported base setting, full KSD preserved useful content with very low linear nuisance leakage, although a nonlinear probe still recovered nuisance. Increasing regularisation strength increased linear leakage for every tested regulariser. Smaller embedding dimensions reduced leakage, while the particular batch-scaled noise scheme did not. These findings concern small models, mostly rendered scenes, and five evaluation seeds per configuration; they do not establish that KSD always wins or that all noise bottlenecks fail.
+
+A plausible interpretation is that pressure to spread the embeddings can be satisfied partly by encoding background variation. The study does not prove that mechanism. For training, the useful distinction is: **prediction rewards shared information, the Stein penalty shapes the embedding cloud, and embedding capacity affects what else can be retained.** Evaluate content and nuisance together, using more than a linear probe, and compare regularisers across their strengths.
+
+# AI use and publication policy
+
+This companion note was drafted and formatted by OpenAI's Codex assistant at the user's request, drawing on the supplied manuscript and the cited literature. AI assistance included conceptual explanation, source checking, and document preparation. No new training experiments were performed for this note, and the companion study's results were not independently reproduced. This disclosure does not claim human review or approval. Before publication, a responsible human author should verify the technical claims and references, approve the text, take responsibility for its accuracy, and adapt this statement to the venue's AI policy. AI assistance is disclosed as a tool, not assigned authorship.
+
+```{=typst}
+#show heading.where(level: 1): set text(size: 11pt)
+#set text(size: 8.5pt)
+#set par(leading: 0.5em)
+```
+
+# References
+
+1. Liu, Q., Lee, J., and Jordan, M. (2016). [A Kernelized Stein Discrepancy for Goodness-of-fit Tests](https://proceedings.mlr.press/v48/liub16.html). ICML.
+2. Gorham, J., and Mackey, L. (2017). [Measuring Sample Quality with Kernels](https://proceedings.mlr.press/v70/gorham17a.html). ICML.
+3. Kingma, D. P., and Welling, M. (2014). [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114). ICLR.
+4. Tolstikhin, I., Bousquet, O., Gelly, S., and Schoelkopf, B. (2018). [Wasserstein Auto-Encoders](https://arxiv.org/abs/1711.01558). ICLR.
+5. Kalia, R. (2026). *Dimension, not noise: what limits nuisance leakage in regularised JEPAs*. Companion manuscript, 8 November 2026.
