@@ -1,0 +1,15 @@
+# Pilot round 3: width 32, kNN probes, EMA collapse fixes.
+base: {tier: shapes, d: 12, alpha: 1.0, sigma: 0.0, law: uniform, steps: 3000, device: mps, seed: 0, ch: 32}
+runs:
+  - {arm: none, lam: 0.0}
+  - {arm: vicreg, lam: 5.0}
+  - {arm: sigreg, lam: 0.05}
+  - {arm: sksd, lam: 5.0}
+  - {arm: ksd, lam: 1.0}
+  - {arm: mmd, lam: 10.0}
+  - {arm: oracle, lam: 0.1, oracle_eps: 0.3}
+  - {arm: ema, lam: 0.0, ema_tau: 0.996, ema_loss: cos}
+  - {arm: ema, lam: 0.0, ema_tau: 0.996, pred_lr_mult: 10.0}
+  - {arm: ema, lam: 0.0, ema_tau: 0.996, pred_norm: bn}
+  - {arm: ema, lam: 0.0, ema_tau: 0.996, pred_norm: bn, ema_loss: cos}
+  - {arm: ema, lam: 0.0, ema_tau: 0.999, ema_target_norm: ln, pred_lr_mult: 10.0}

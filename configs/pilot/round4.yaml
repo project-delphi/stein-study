@@ -1,0 +1,25 @@
+# Pilot round 4: predictor lr x10 for regularised arms; first CIFAR / temporal / VAE runs.
+base: {d: 12, alpha: 1.0, sigma: 0.0, law: uniform, steps: 3000, device: mps, seed: 0, ch: 32}
+runs:
+  - {tier: shapes, arm: sigreg, lam: 0.05, pred_lr_mult: 10.0}
+  - {tier: shapes, arm: sksd, lam: 5.0, pred_lr_mult: 10.0}
+  - {tier: shapes, arm: ksd, lam: 1.0, pred_lr_mult: 10.0}
+  - {tier: shapes, arm: mmd, lam: 10.0, pred_lr_mult: 10.0}
+  - {tier: shapes, arm: vicreg, lam: 5.0, pred_lr_mult: 10.0}
+  - {tier: shapes, arm: oracle, lam: 0.1, oracle_eps: 0.3, pred_lr_mult: 10.0}
+  - {tier: cifar, arm: none, lam: 0.0}
+  - {tier: cifar, arm: vicreg, lam: 5.0}
+  - {tier: cifar, arm: sigreg, lam: 0.05}
+  - {tier: cifar, arm: sksd, lam: 5.0}
+  - {tier: cifar, arm: ksd, lam: 1.0}
+  - {tier: cifar, arm: mmd, lam: 10.0}
+  - {tier: cifar, arm: ema, lam: 0.0, ema_tau: 0.999, ema_target_norm: ln, pred_lr_mult: 10.0}
+  - {tier: cifar, arm: oracle, lam: 0.1, oracle_eps: 0.3}
+  - {tier: temporal, arm: ema, lam: 0.0, ema_tau: 0.999, ema_target_norm: ln, pred_lr_mult: 10.0}
+  - {tier: temporal, arm: ema+sksd, lam: 5.0, ema_tau: 0.999, ema_target_norm: ln, pred_lr_mult: 10.0}
+  - {tier: temporal, arm: ema+sigreg, lam: 0.05, ema_tau: 0.999, ema_target_norm: ln, pred_lr_mult: 10.0}
+  - {tier: temporal, arm: sksd, lam: 5.0}
+  - {tier: temporal, arm: vicreg, lam: 5.0}
+  - {tier: vae, arm: betavae, lam: 1.0}
+  - {tier: vae, arm: ksd, lam: 10.0}
+  - {tier: vae, arm: mmd, lam: 100.0}

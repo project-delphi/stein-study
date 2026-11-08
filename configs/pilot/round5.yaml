@@ -1,0 +1,19 @@
+# Pilot round 5: final defaults (pred lr x10 for all arms, EMA tau .999 + LN targets, oracle eps .3),
+# 2000 vs 3000 steps; temporal tier with T=3 and per-frame regulariser.
+base: {d: 12, alpha: 1.0, sigma: 0.0, law: uniform, device: mps, seed: 0, steps: 2000}
+runs:
+  - {tier: shapes, arm: none, lam: 0.0}
+  - {tier: shapes, arm: ema, lam: 0.0}
+  - {tier: shapes, arm: sigreg, lam: 0.05}
+  - {tier: shapes, arm: sksd, lam: 5.0}
+  - {tier: shapes, arm: ksd, lam: 1.0}
+  - {tier: shapes, arm: mmd, lam: 10.0}
+  - {tier: shapes, arm: vicreg, lam: 5.0}
+  - {tier: shapes, arm: oracle, lam: 0.1}
+  - {tier: shapes, arm: ema, lam: 0.0, steps: 3000}
+  - {tier: shapes, arm: sksd, lam: 5.0, law: laplace, prior: laplace}
+  - {tier: shapes, arm: ksd, lam: 1.0, law: uniform, prior: uniform}
+  - {tier: temporal, arm: ema, lam: 0.0, T: 3}
+  - {tier: temporal, arm: sksd, lam: 5.0, T: 3}
+  - {tier: temporal, arm: ema+sksd, lam: 5.0, T: 3}
+  - {tier: vae, arm: ksd, lam: 10.0, prior: uniform}

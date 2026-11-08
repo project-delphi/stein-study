@@ -1,0 +1,13 @@
+# Base configuration for P2 (3DShapes, d = 2k = 12, alpha = 1, sigma = 0, uniform law).
+# Everything not listed takes stein/train.py DEFAULTS (ch 32, batch 256 pairs, 2000 steps, Adam 1e-3,
+# predictor lr x10, EMA tau .999 + LayerNorm targets, sliced-KSD 32 directions, oracle eps .3).
+tier: shapes
+d: 12
+alpha: 1.0
+sigma: 0.0
+law: uniform
+prior: gaussian
+device: mps
+# Pilot lambda centres (P2 tunes 3 levels per arm on 2 validation seeds):
+#   vicreg 5 | sigreg 0.05 | sksd 5 | ksd 1 | mmd 10 | oracle 0.1 | ema: tau in {0.99, 0.996, 0.999}
+#   vae: betavae 1 | ksd 10 | mmd 100

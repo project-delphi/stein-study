@@ -1,0 +1,11 @@
+# Pilot: one run per arm on 3DShapes, d = 2k = 12, alpha = 1, sigma = 0, uniform law.
+base: {tier: shapes, d: 12, alpha: 1.0, sigma: 0.0, law: uniform, steps: 3000, device: mps, seed: 0}
+runs:
+  - {arm: none, lam: 0.0}
+  - {arm: vicreg, lam: 1.0}
+  - {arm: sigreg, lam: 0.05}
+  - {arm: sksd, lam: 5.0}
+  - {arm: ksd, lam: 1.0}
+  - {arm: mmd, lam: 10.0}
+  - {arm: ema, lam: 0.0}
+  - {arm: oracle, lam: 0.01}

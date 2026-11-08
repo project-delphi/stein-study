@@ -1,0 +1,15 @@
+# Pilot round 2: fixes for EMA collapse, VICReg/oracle strength, saturation, 6 MPS workers.
+base: {tier: shapes, d: 12, alpha: 1.0, sigma: 0.0, law: uniform, steps: 3000, device: mps, seed: 0}
+runs:
+  - {arm: ema, lam: 0.0, ema_tau: 0.996}
+  - {arm: ema, lam: 0.0, ema_tau: 0.996, ema_target_norm: ln}
+  - {arm: ema, lam: 0.0, ema_tau: 0.99, ema_target_norm: ln}
+  - {arm: vicreg, lam: 5.0}
+  - {arm: vicreg, lam: 25.0}
+  - {arm: oracle, lam: 0.1}
+  - {arm: oracle, lam: 0.1, oracle_eps: 0.3}
+  - {arm: sksd, lam: 5.0, num_slices: 32}
+  - {arm: sigreg, lam: 0.05, steps: 6000}
+  - {arm: mmd, lam: 10.0, steps: 6000}
+  - {arm: sigreg, lam: 0.2}
+  - {arm: ksd, lam: 5.0}
