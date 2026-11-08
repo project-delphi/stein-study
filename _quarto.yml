@@ -1,0 +1,8 @@
+# One Quarto project, two outputs: the paper (PDF via typst) and the blog post (HTML + OJS).
+# Build:  .venv/bin/python -W ignore -m stein.report && quarto render
+# Neither document executes Python at render time; numbers come from generated YAML files.
+project:
+  type: default
+  render:
+    - paper/paper.qmd
+    - blog/index.qmd

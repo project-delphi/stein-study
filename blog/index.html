@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.20">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Ravi Kalia">
+<meta name="dcterms.date" content="2026-11-08">
+
+<title>Nuisance leakage in JEPA embeddings</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="index_files/libs/clipboard/clipboard.min.js"></script>
+<script src="index_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="index_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="index_files/libs/quarto-html/popper.min.js"></script>
+<script src="index_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="index_files/libs/quarto-html/anchor.min.js"></script>
+<link href="index_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="index_files/libs/quarto-html/quarto-syntax-highlighting-17888a1159294d3eb470f19f6f52f5a5.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="index_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="index_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="index_files/libs/bootstrap/bootstrap-917079515d91bccb85b543faf8aa8bb6.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script type="module" src="index_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
+<link href="index_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#joint-embedding-prediction" id="toc-joint-embedding-prediction" class="nav-link active" data-scroll-target="#joint-embedding-prediction"><span class="header-section-number">1</span> Joint-embedding prediction</a></li>
+  <li><a href="#data" id="toc-data" class="nav-link" data-scroll-target="#data"><span class="header-section-number">2</span> Data</a>
+  <ul class="collapse">
+  <li><a href="#dshapes" id="toc-dshapes" class="nav-link" data-scroll-target="#dshapes"><span class="header-section-number">2.1</span> 3DShapes</a></li>
+  <li><a href="#other-tiers" id="toc-other-tiers" class="nav-link" data-scroll-target="#other-tiers"><span class="header-section-number">2.2</span> Other tiers</a></li>
+  </ul></li>
+  <li><a href="#leakage" id="toc-leakage" class="nav-link" data-scroll-target="#leakage"><span class="header-section-number">3</span> Leakage</a></li>
+  <li><a href="#protocol" id="toc-protocol" class="nav-link" data-scroll-target="#protocol"><span class="header-section-number">4</span> Protocol</a></li>
+  <li><a href="#regulariser-strength" id="toc-regulariser-strength" class="nav-link" data-scroll-target="#regulariser-strength"><span class="header-section-number">5</span> Regulariser strength</a>
+  <ul class="collapse">
+  <li><a href="#λ-explorer" id="toc-λ-explorer" class="nav-link" data-scroll-target="#λ-explorer"><span class="header-section-number">5.1</span> λ explorer</a></li>
+  </ul></li>
+  <li><a href="#embedding-width-and-noise" id="toc-embedding-width-and-noise" class="nav-link" data-scroll-target="#embedding-width-and-noise"><span class="header-section-number">6</span> Embedding width and noise</a>
+  <ul class="collapse">
+  <li><a href="#configuration-explorer" id="toc-configuration-explorer" class="nav-link" data-scroll-target="#configuration-explorer"><span class="header-section-number">6.1</span> Configuration explorer</a></li>
+  </ul></li>
+  <li><a href="#other-results" id="toc-other-results" class="nav-link" data-scroll-target="#other-results"><span class="header-section-number">7</span> Other results</a></li>
+  <li><a href="#constraints" id="toc-constraints" class="nav-link" data-scroll-target="#constraints"><span class="header-section-number">8</span> Constraints</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">9</span> References</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Nuisance leakage in JEPA embeddings</h1>
+<p class="subtitle lead">Regulariser strength, embedding width and noise on 3DShapes</p>
+  <div class="quarto-categories">
+    <div class="quarto-category">self-supervised learning</div>
+    <div class="quarto-category">JEPA</div>
+    <div class="quarto-category">Stein discrepancy</div>
+  </div>
+  </div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Ravi Kalia </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">November 8, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Self-supervised image encoders keep some detail they were meant to ignore; on rendered images where that detail is known, the amount is set mainly by how hard the anti-collapse regulariser pushes and by the embedding width, not by which target distribution it pushes toward.</p>
+<p>Anyone who has trained a contrastive or predictive encoder has written an augmentation pipeline: crop, flip, recolour. The pipeline encodes a wish: whatever it changes, the encoder should ignore. The training loss never checks the wish. On photographs it cannot be checked, because nobody has a list of everything that differs between two views. A rendered dataset with known generating factors supplies that list and turns the wish into a number.</p>
+<p>Three ideas carry the results:</p>
+<ol type="1">
+<li><strong>Leakage</strong>: how well a simple probe reads the ignored factors back out of the embedding. Known factors make it measurable.</li>
+<li><strong>Regulariser strength</strong>, not the target law, controls leakage.</li>
+<li><strong>Embedding width</strong> is a better nuisance filter than injected noise here.</li>
+</ol>
+<p>The full write-up, with every table, is the <a href="../paper/paper.pdf">paper</a>.</p>
+<section id="joint-embedding-prediction" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="joint-embedding-prediction"><span class="header-section-number">1</span> Joint-embedding prediction</h2>
+<p>A joint-embedding predictive architecture (JEPA; Assran et al.&nbsp;2023) learns from pairs of views of one scene.</p>
+<ul>
+<li>An <strong>encoder</strong> maps an image to an embedding of <span class="math inline">\(d\)</span> numbers.</li>
+<li>A small <strong>predictor</strong> maps view 1’s embedding to a guess at view 2’s embedding.</li>
+<li>Training lowers the prediction error, in both directions.</li>
+</ul>
+<p>The loss has a trivial minimum: map every image to the same vector and the error is zero. This is <strong>collapse</strong>. Every JEPA needs a second ingredient to stop it. The study compares eight:</p>
+<ul>
+<li><strong>EMA target</strong>: view 2’s embedding comes from a slowly updated copy of the encoder, and no gradient flows through it.</li>
+<li><strong>VICReg</strong> (Bardes et al.&nbsp;2022): penalises embedding dimensions whose spread is too small, and correlations between dimensions. It names no target distribution.</li>
+<li><strong>SIGReg</strong> (Balestriero &amp; LeCun 2025): pushes random one-dimensional projections of the batch toward a standard normal.</li>
+<li><strong>KSD</strong>: the kernel Stein discrepancy (Liu et al.&nbsp;2016) measures how far a batch is from a target density using only the gradient of the target’s log-density. Here the kernel is inverse multiquadric (Gorham &amp; Mackey 2017) and the target is <span class="math inline">\(N(0, I)\)</span>.</li>
+<li><strong>Sliced KSD</strong> (Gong et al.&nbsp;2021): KSD along random directions.</li>
+<li><strong>MMD</strong>: compares the batch with a fresh sample from <span class="math inline">\(N(0, I)\)</span> through kernel averages.</li>
+<li><strong>Oracle</strong>: KSD toward a target that knows the content dimension <span class="math inline">\(k = 6\)</span>: six full-size dimensions, the rest shrunk.</li>
+<li><strong>None</strong>: no regulariser. It collapses in 100% of seeds.</li>
+</ul>
+<p>All regularised arms add one term, weighted by <span class="math inline">\(\lambda\)</span>, to the prediction loss. SIGReg, KSD, sliced KSD and MMD all aim at an isotropic Gaussian.</p>
+</section>
+<section id="data" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="data"><span class="header-section-number">2</span> Data</h2>
+<section id="dshapes" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="dshapes"><span class="header-section-number">2.1</span> 3DShapes</h3>
+<ul>
+<li><strong>Source.</strong> 3DShapes (Burgess &amp; Kim 2018) is a DeepMind dataset of 480,000 rendered 64×64 images. Each shows one object in a room, at every combination of six factors: floor hue, wall hue, object hue, object scale, object shape and orientation.</li>
+<li><strong>Motive.</strong> It was built to test whether a model recovers known generating factors.</li>
+<li><strong>Use here.</strong> The six factors split into two groups:
+<ul>
+<li><strong>content</strong>, shared by both views: object hue, scale and shape, coded as <span class="math inline">\(k = 6\)</span> numbers;</li>
+<li><strong>nuisance</strong>, which may differ between views: floor hue, wall hue and orientation.</li>
+</ul></li>
+<li><strong>Views.</strong> Two images share content. Each nuisance factor is redrawn with probability <span class="math inline">\(\alpha\)</span>, and light pixel noise is added. At <span class="math inline">\(\alpha = 0\)</span> the views differ only by pixel noise.</li>
+<li><strong>Why the method fits.</strong> All six factors are recorded for every image, so a probe can be aimed at the nuisance and nothing else.</li>
+<li><strong>Cost of a wrong answer.</strong> A practitioner who blames the target distribution for leakage would swap regularisers when the fix is a weight or a width.</li>
+</ul>
+<div id="fig-views" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-views-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/fig1_views.svg" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-views-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Four example view pairs at <span class="math inline">\(\alpha\)</span> = 0, 0.5 and 1 (rows). Content (object shape, scale, hue) is shared within a pair; floor hue, wall hue and orientation are redrawn with probability <span class="math inline">\(\alpha\)</span>.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="other-tiers" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="other-tiers"><span class="header-section-number">2.2</span> Other tiers</h3>
+<ul>
+<li><strong>Temporal clips.</strong> Three-frame 3DShapes clips in which nuisance factors drift one step per frame with probability <span class="math inline">\(\alpha\)</span>. The model predicts frame 3’s embedding from frames 1 and 2.</li>
+<li><strong>Autoencoders.</strong> A β-VAE (Higgins et al.&nbsp;2017) and KSD and MMD autoencoders at the same <span class="math inline">\(d\)</span>. They reconstruct pixels, so they serve as a reference for models that must keep everything.</li>
+<li><strong>CIFAR-10.</strong> CIFAR-10 (Krizhevsky 2009) is 60,000 labelled 32×32 photographs in 10 classes, built as a classification benchmark. Its nuisance is the augmentation parameters (crop box, flip, colour jitter), known because the pipeline draws them.</li>
+</ul>
+</section>
+</section>
+<section id="leakage" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="leakage"><span class="header-section-number">3</span> Leakage</h2>
+<p>Leakage asks whether the ignored factors can still be read off the trained embedding:</p>
+<ul>
+<li>Freeze the encoder.</li>
+<li>Embed 10,000 training-split images and fit a linear regression from embedding to nuisance factors.</li>
+<li>Score <span class="math inline">\(R^2\)</span> on 5,000 images from a held-out 10% of factor combinations.</li>
+</ul>
+<p>That <span class="math inline">\(R^2\)</span> is the <strong>leakage</strong>. Zero means the nuisance is not linearly readable; one means it is fully readable. The same probe aimed at the content factors gives <strong>content <span class="math inline">\(R^2\)</span></strong>. A good encoder has high content <span class="math inline">\(R^2\)</span> and low leakage.</p>
+<p>A k-nearest-neighbour probe (10 neighbours) gives a second, nonlinear leakage score. On photographs neither probe has a target, because the list of what differs between two views is unknown.</p>
+</section>
+<section id="protocol" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="protocol"><span class="header-section-number">4</span> Protocol</h2>
+<ul>
+<li><strong>Encoder.</strong> A small convolutional network with no normalisation layers, <span class="math inline">\(d \in \{3, 6, 12, 24\}\)</span>. The base setting is <span class="math inline">\(d = 12\)</span>, <span class="math inline">\(\sigma = 0\)</span>, <span class="math inline">\(\alpha = 1\)</span>.</li>
+<li><strong>Training.</strong> 2000 steps, batch of 256 pairs.</li>
+<li><strong>Tuning.</strong> Every arm gets three levels of <span class="math inline">\(\lambda\)</span> (×1/5, ×1, ×5 around a pilot value), or three EMA decay rates. The level with the highest content <span class="math inline">\(R^2\)</span> on two tuning seeds wins. Leakage never enters the choice.</li>
+<li><strong>Evaluation.</strong> 5 fresh seeds per configuration, 95% bootstrap intervals over seeds.</li>
+<li><strong>Size.</strong> 495 held-out runs, 747 runs in total including tuning.</li>
+</ul>
+</section>
+<section id="regulariser-strength" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="regulariser-strength"><span class="header-section-number">5</span> Regulariser strength</h2>
+<p>The first hypothesis was about the target law. A regulariser that pushes toward an isotropic Gaussian must spread variance over all <span class="math inline">\(d\)</span> dimensions; with <span class="math inline">\(d &gt; k\)</span>, the spare dimensions have nothing to hold but nuisance. So Gaussian-target arms should leak more than VICReg and EMA.</p>
+<p>At the tuned <span class="math inline">\(\lambda\)</span> and <span class="math inline">\(d = 12\)</span>, the opposite holds. Linear leakage, mean [95% interval]:</p>
+<ul>
+<li>VICReg: 0.673 [0.542, 0.772]</li>
+<li>SIGReg: 0.250 [0.218, 0.281]</li>
+<li>EMA: 0.215 [0.137, 0.283]</li>
+<li>sliced KSD: 0.019 [0.008, 0.029]</li>
+<li>MMD: 0.012 [0.000, 0.026]</li>
+<li>KSD: 0.002 [−0.001, 0.005]</li>
+</ul>
+<p>At <span class="math inline">\(d = 12\)</span> and <span class="math inline">\(d = 24\)</span>, 8 of 8 Gaussian-arm minus VICReg contrasts are negative with intervals that exclude zero.</p>
+<p>The ranking does not survive a change of <span class="math inline">\(\lambda\)</span>. Rerunning every regulariser at all three of its levels on the held-out seeds gives leakage at the highest <span class="math inline">\(\lambda\)</span> minus leakage at the lowest:</p>
+<ul>
+<li>VICReg: +0.499 [0.349, 0.596]</li>
+<li>SIGReg: +0.370 [0.272, 0.467]</li>
+<li>sliced KSD: +0.522 [0.427, 0.588]</li>
+<li>KSD: +0.532 [0.458, 0.602]</li>
+<li>MMD: +0.333 [0.215, 0.449]</li>
+<li>oracle: +0.493 [0.382, 0.575]</li>
+</ul>
+<p>What the six contrasts show:</p>
+<ul>
+<li>All six are positive, with intervals that exclude zero.</li>
+<li>VICReg names no target distribution and still follows the pattern.</li>
+<li>At five times its tuned <span class="math inline">\(\lambda\)</span>, KSD leaks more than VICReg at VICReg’s least-leaky level (+0.210 [0.146, 0.266]).</li>
+<li>Pushing harder costs content: KSD’s content <span class="math inline">\(R^2\)</span> falls from 0.727 at its tuned <span class="math inline">\(\lambda\)</span> to 0.340 at 25 times it.</li>
+</ul>
+<p>More distributional pressure buys more leakage, whatever the target. Tuning for content picked low-pressure levels for the KSD family, and that choice, not the Gaussian target, decides the comparison.</p>
+<section id="λ-explorer" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="λ-explorer"><span class="header-section-number">5.1</span> λ explorer</h3>
+<p>The chart shows linear leakage and linear content <span class="math inline">\(R^2\)</span> on the held-out seeds against <span class="math inline">\(\lambda\)</span> divided by the tuned <span class="math inline">\(\lambda\)</span> (log scale; dotted line = tuned). Bars are 95% intervals.</p>
+<ul>
+<li>Compare each arm’s lowest and highest <span class="math inline">\(\lambda\)</span>: leakage is higher at the highest for every arm.</li>
+<li>Content at the highest <span class="math inline">\(\lambda\)</span> is lower than at the tuned <span class="math inline">\(\lambda\)</span> for every arm.</li>
+<li>KSD and sliced KSD were tuned at the bottom of their grids, so their curves start at 1.</li>
+</ul>
+<div id="lam-inputs" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code hidden" id="cb1" data-startfrom="136" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 135;"><span id="cb1-136"><a href="#cb1-136" aria-hidden="true" tabindex="-1"></a>lamArmNames <span class="op">=</span> [<span class="st">"VICReg"</span><span class="op">,</span> <span class="st">"SIGReg"</span><span class="op">,</span> <span class="st">"sliced KSD"</span><span class="op">,</span> <span class="st">"KSD"</span><span class="op">,</span> <span class="st">"MMD"</span><span class="op">,</span> <span class="st">"oracle"</span>]</span>
+<span id="cb1-137"><a href="#cb1-137" aria-hidden="true" tabindex="-1"></a>viewof lamArms <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">checkbox</span>(lamArmNames<span class="op">,</span> {<span class="dt">label</span><span class="op">:</span> <span class="st">"Regulariser"</span><span class="op">,</span> <span class="dt">value</span><span class="op">:</span> lamArmNames})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div id="lam-inputs-1">
+<div id="ojs-cell-1-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="lam-inputs-2">
+<div id="ojs-cell-1-2" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code hidden" id="cb2" data-startfrom="141" data-source-offset="0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 140;"><span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (lamArms<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="fu">html</span><span class="vs">`&lt;p&gt;&lt;em&gt;Select at least one regulariser.&lt;/em&gt;&lt;/p&gt;`</span><span class="op">;</span></span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> mets <span class="op">=</span> [</span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>    {<span class="dt">key</span><span class="op">:</span> <span class="st">"leak_r2"</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"linear leakage R² (lower is better)"</span>}<span class="op">,</span></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>    {<span class="dt">key</span><span class="op">:</span> <span class="st">"content_r2"</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"linear content R² (higher is better)"</span>}</span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">;</span></span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> long <span class="op">=</span> lamSens</span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">filter</span>(r <span class="kw">=&gt;</span> lamArms<span class="op">.</span><span class="fu">includes</span>(r<span class="op">.</span><span class="at">arm_name</span>))</span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">flatMap</span>(r <span class="kw">=&gt;</span> mets<span class="op">.</span><span class="fu">map</span>(m <span class="kw">=&gt;</span> ({</span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>      <span class="dt">arm</span><span class="op">:</span> r<span class="op">.</span><span class="at">arm_name</span><span class="op">,</span></span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>      <span class="dt">metric</span><span class="op">:</span> m<span class="op">.</span><span class="at">label</span><span class="op">,</span></span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>      <span class="dt">lam</span><span class="op">:</span> r<span class="op">.</span><span class="at">lam</span><span class="op">,</span></span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>      <span class="dt">x</span><span class="op">:</span> r<span class="op">.</span><span class="at">lam_rel</span> <span class="op">*</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">pow</span>(<span class="dv">2</span><span class="op">,</span> (lamArmNames<span class="op">.</span><span class="fu">indexOf</span>(r<span class="op">.</span><span class="at">arm_name</span>) <span class="op">-</span> <span class="fl">2.5</span>) <span class="op">/</span> <span class="dv">25</span>)<span class="op">,</span></span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>      <span class="dt">v</span><span class="op">:</span> r[m<span class="op">.</span><span class="at">key</span>]<span class="op">,</span> <span class="dt">lo</span><span class="op">:</span> r[m<span class="op">.</span><span class="at">key</span> <span class="op">+</span> <span class="st">"_lo"</span>]<span class="op">,</span> <span class="dt">hi</span><span class="op">:</span> r[m<span class="op">.</span><span class="at">key</span> <span class="op">+</span> <span class="st">"_hi"</span>]</span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>    })))<span class="op">;</span></span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> fmt <span class="op">=</span> d3<span class="op">.</span><span class="fu">format</span>(<span class="st">".3f"</span>)<span class="op">;</span></span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> Plot<span class="op">.</span><span class="fu">plot</span>({</span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>    width<span class="op">,</span></span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">320</span><span class="op">,</span></span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a>    <span class="dt">marginBottom</span><span class="op">:</span> <span class="dv">40</span><span class="op">,</span></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>    <span class="dt">fx</span><span class="op">:</span> {<span class="dt">domain</span><span class="op">:</span> mets<span class="op">.</span><span class="fu">map</span>(m <span class="kw">=&gt;</span> m<span class="op">.</span><span class="at">label</span>)<span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="kw">null</span>}<span class="op">,</span></span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> {<span class="dt">type</span><span class="op">:</span> <span class="st">"log"</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"λ ÷ tuned λ"</span><span class="op">,</span> <span class="dt">ticks</span><span class="op">:</span> [<span class="dv">1</span><span class="op">/</span><span class="dv">5</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">25</span>]<span class="op">,</span></span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>        <span class="dt">tickFormat</span><span class="op">:</span> t <span class="kw">=&gt;</span> t <span class="op">&lt;</span> <span class="dv">1</span> <span class="op">?</span> <span class="st">"1/"</span> <span class="op">+</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(<span class="dv">1</span> <span class="op">/</span> t) <span class="op">:</span> <span class="bu">String</span>(t)}<span class="op">,</span></span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> {<span class="dt">label</span><span class="op">:</span> <span class="st">"R²"</span><span class="op">,</span> <span class="dt">grid</span><span class="op">:</span> <span class="kw">true</span><span class="op">,</span> <span class="dt">domain</span><span class="op">:</span> [<span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="dv">0</span><span class="op">,</span> d3<span class="op">.</span><span class="fu">min</span>(long<span class="op">,</span> d <span class="kw">=&gt;</span> d<span class="op">.</span><span class="at">lo</span>))<span class="op">,</span> <span class="dv">1</span>]}<span class="op">,</span></span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>    <span class="dt">color</span><span class="op">:</span> lamColor<span class="op">,</span></span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>    <span class="dt">marks</span><span class="op">:</span> [</span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a>      Plot<span class="op">.</span><span class="fu">ruleX</span>([<span class="dv">1</span>]<span class="op">,</span> {<span class="dt">stroke</span><span class="op">:</span> <span class="st">"#999"</span><span class="op">,</span> <span class="dt">strokeDasharray</span><span class="op">:</span> <span class="st">"2,3"</span>})<span class="op">,</span></span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a>      Plot<span class="op">.</span><span class="fu">line</span>(long<span class="op">,</span> {<span class="dt">fx</span><span class="op">:</span> <span class="st">"metric"</span><span class="op">,</span> <span class="dt">x</span><span class="op">:</span> <span class="st">"x"</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="st">"v"</span><span class="op">,</span> <span class="dt">z</span><span class="op">:</span> <span class="st">"arm"</span><span class="op">,</span> <span class="dt">stroke</span><span class="op">:</span> <span class="st">"arm"</span><span class="op">,</span> <span class="dt">sort</span><span class="op">:</span> <span class="st">"x"</span>})<span class="op">,</span></span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a>      Plot<span class="op">.</span><span class="fu">ruleX</span>(long<span class="op">,</span> {<span class="dt">fx</span><span class="op">:</span> <span class="st">"metric"</span><span class="op">,</span> <span class="dt">x</span><span class="op">:</span> <span class="st">"x"</span><span class="op">,</span> <span class="dt">y1</span><span class="op">:</span> <span class="st">"lo"</span><span class="op">,</span> <span class="dt">y2</span><span class="op">:</span> <span class="st">"hi"</span><span class="op">,</span> <span class="dt">stroke</span><span class="op">:</span> <span class="st">"arm"</span>})<span class="op">,</span></span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a>      Plot<span class="op">.</span><span class="fu">dot</span>(long<span class="op">,</span> {<span class="dt">fx</span><span class="op">:</span> <span class="st">"metric"</span><span class="op">,</span> <span class="dt">x</span><span class="op">:</span> <span class="st">"x"</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="st">"v"</span><span class="op">,</span> <span class="dt">fill</span><span class="op">:</span> <span class="st">"arm"</span><span class="op">,</span> <span class="dt">r</span><span class="op">:</span> <span class="fl">3.5</span><span class="op">,</span></span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>        <span class="dt">title</span><span class="op">:</span> d <span class="kw">=&gt;</span> <span class="vs">`</span><span class="sc">${</span>d<span class="op">.</span><span class="at">arm</span><span class="sc">}</span><span class="vs">, λ = </span><span class="sc">${</span>d<span class="op">.</span><span class="at">lam</span><span class="sc">}\n${</span>d<span class="op">.</span><span class="at">metric</span><span class="sc">}</span><span class="vs">: </span><span class="sc">${</span><span class="fu">fmt</span>(d<span class="op">.</span><span class="at">v</span>)<span class="sc">}</span><span class="vs"> [</span><span class="sc">${</span><span class="fu">fmt</span>(d<span class="op">.</span><span class="at">lo</span>)<span class="sc">}</span><span class="vs">, </span><span class="sc">${</span><span class="fu">fmt</span>(d<span class="op">.</span><span class="at">hi</span>)<span class="sc">}</span><span class="vs">]`</span><span class="op">,</span></span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>        <span class="dt">tip</span><span class="op">:</span> <span class="kw">true</span>})</span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="lam-plot" class="cell-output cell-output-display">
+<div id="ojs-cell-2" data-nodetype="expression">
+
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="embedding-width-and-noise" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="embedding-width-and-noise"><span class="header-section-number">6</span> Embedding width and noise</h2>
+<p>There are two obvious ways to squeeze an embedding so it cannot carry everything:</p>
+<ul>
+<li><strong>Width</strong>: give it fewer dimensions, a lower <span class="math inline">\(d\)</span>.</li>
+<li><strong>Information bottleneck</strong>: add Gaussian noise of size <span class="math inline">\(\sigma\)</span> to the embedding before the predictor sees it, which limits how much detail gets through. The noise is scaled to the batch spread of the embedding, so the encoder cannot escape it by growing its outputs. Probes read the clean embedding.</li>
+</ul>
+<p>The hypothesis was that noise removes nuisance where width does not. The data say the reverse. Contrasts at <span class="math inline">\(\alpha = 1\)</span>, mean [95% interval]:</p>
+<div id="tbl-width-noise" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-width-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: Width and noise contrasts on 3DShapes. Negative leakage is good; negative content is bad.
+</figcaption>
+<div aria-describedby="tbl-width-noise-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Arm</th>
+<th>Leakage, <span class="math inline">\(d\)</span> 6 − 24</th>
+<th>Content, <span class="math inline">\(d\)</span> 6 − 24</th>
+<th>Leakage, <span class="math inline">\(\sigma\)</span> 1 − 0 (<span class="math inline">\(d\)</span> 12)</th>
+<th>Content, <span class="math inline">\(\sigma\)</span> 1 − 0 (<span class="math inline">\(d\)</span> 12)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>EMA</td>
+<td><p>−0.433 [−0.539, −0.322]</p></td>
+<td><p>−0.165 [−0.211, −0.120]</p></td>
+<td><p>+0.443 [0.355, 0.538]</p></td>
+<td><p>−0.167 [−0.259, −0.080]</p></td>
+</tr>
+<tr class="even">
+<td>VICReg</td>
+<td><p>−0.177 [−0.338, −0.012]</p></td>
+<td><p>−0.226 [−0.267, −0.184]</p></td>
+<td><p>−0.103 [−0.243, 0.050]</p></td>
+<td><p>−0.125 [−0.168, −0.070]</p></td>
+</tr>
+<tr class="odd">
+<td>SIGReg</td>
+<td><p>−0.396 [−0.465, −0.318]</p></td>
+<td><p>−0.200 [−0.253, −0.145]</p></td>
+<td><p>+0.097 [0.026, 0.168]</p></td>
+<td><p>−0.171 [−0.221, −0.119]</p></td>
+</tr>
+<tr class="even">
+<td>sliced KSD</td>
+<td><p>−0.135 [−0.180, −0.104]</p></td>
+<td><p>−0.109 [−0.162, −0.058]</p></td>
+<td><p>+0.437 [0.363, 0.511]</p></td>
+<td><p>−0.357 [−0.393, −0.322]</p></td>
+</tr>
+<tr class="odd">
+<td>KSD</td>
+<td><p>−0.499 [−0.599, −0.396]</p></td>
+<td><p>−0.181 [−0.264, −0.094]</p></td>
+<td><p>+0.646 [0.596, 0.687]</p></td>
+<td><p>−0.270 [−0.332, −0.210]</p></td>
+</tr>
+<tr class="even">
+<td>MMD</td>
+<td><p>−0.049 [−0.081, −0.020]</p></td>
+<td><p>−0.304 [−0.353, −0.254]</p></td>
+<td><p>+0.405 [0.347, 0.469]</p></td>
+<td><p>−0.445 [−0.494, −0.396]</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<ul>
+<li>Narrowing <span class="math inline">\(d\)</span> from 24 to 6 lowers linear leakage for all six arms.</li>
+<li>Narrowing <span class="math inline">\(d\)</span> also lowers content <span class="math inline">\(R^2\)</span> for all six. Width is a trade, not a free filter.</li>
+<li>Raising <span class="math inline">\(\sigma\)</span> from 0 to 1 lowers content for all six, and raises leakage for all except VICReg, whose change is not distinguishable from zero.</li>
+<li>EMA’s kNN leakage does fall with noise (−0.107 [−0.153, −0.060]), but its content falls with it. Its embedding is degrading, not filtering.</li>
+</ul>
+<p>Shrinking spare dimensions is not the same as removing them. The oracle arm squeezes its <span class="math inline">\(d - k\)</span> spare dimensions toward zero, yet leaks 0.451 at <span class="math inline">\(d = 12\)</span> and 0.685 at <span class="math inline">\(d = 24\)</span>. The probe standardises every dimension first, so a small dimension reads as clearly as a large one.</p>
+<div id="fig-sigma" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sigma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/fig4_h2_sigma.svg" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sigma-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Linear leakage (first two panels) and linear content <span class="math inline">\(R^2\)</span> (last two panels) against noise <span class="math inline">\(\sigma\)</span>, at <span class="math inline">\(d\)</span> = 12 and <span class="math inline">\(d\)</span> = 24. Bars are 95% intervals over 5 seeds.
+</figcaption>
+</figure>
+</div>
+<section id="configuration-explorer" class="level3" data-number="6.1">
+<h3 data-number="6.1" class="anchored" data-anchor-id="configuration-explorer"><span class="header-section-number">6.1</span> Configuration explorer</h3>
+<p>The chart shows linear leakage and content <span class="math inline">\(R^2\)</span> (mean, 95% interval over 5 seeds) at the tuned <span class="math inline">\(\lambda\)</span>. The study ran three slices through the base setting, not a full grid:</p>
+<ul>
+<li><span class="math inline">\(d \in \{3, 6, 12, 24\}\)</span> at <span class="math inline">\(\sigma = 0\)</span>, <span class="math inline">\(\alpha = 1\)</span>, all eight arms;</li>
+<li><span class="math inline">\(\sigma \in \{0, 0.5, 1\}\)</span> at <span class="math inline">\(d \in \{12, 24\}\)</span>, <span class="math inline">\(\alpha = 1\)</span>, six arms (no oracle, no “none”);</li>
+<li><span class="math inline">\(\alpha \in \{0, 0.5, 1\}\)</span> at <span class="math inline">\(d = 12\)</span>, <span class="math inline">\(\sigma = 0\)</span>, the same six arms.</li>
+</ul>
+<p>Other combinations show “not run”. Nothing is interpolated.</p>
+<p>Things to try:</p>
+<ul>
+<li>Set <span class="math inline">\(\sigma = 0\)</span>, <span class="math inline">\(\alpha = 1\)</span> and compare <span class="math inline">\(d = 3\)</span> with <span class="math inline">\(d = 24\)</span>: linear leakage is higher at <span class="math inline">\(d = 24\)</span> for every arm except the collapsed “none” baseline.</li>
+<li>Set <span class="math inline">\(\alpha = 1\)</span> and <span class="math inline">\(d = 12\)</span> or <span class="math inline">\(d = 24\)</span>, then compare <span class="math inline">\(\sigma = 0\)</span> with <span class="math inline">\(\sigma = 1\)</span>: leakage is higher at <span class="math inline">\(\sigma = 1\)</span> for every arm except VICReg, and content is lower for every arm.</li>
+<li>Set <span class="math inline">\(d = 12\)</span>, <span class="math inline">\(\sigma = 0\)</span> and compare <span class="math inline">\(\alpha = 0\)</span> with <span class="math inline">\(\alpha = 1\)</span>: leakage is lower at <span class="math inline">\(\alpha = 1\)</span> for every arm. When the nuisance never changes between views, nothing pushes the encoder to drop it.</li>
+<li>Turn on kNN leakage at the base setting: KSD, sliced KSD and MMD hold nuisance a linear probe cannot read.</li>
+</ul>
+<div id="explorer-data" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code hidden" id="cb3" data-startfrom="227" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 226;"><span id="cb3-227"><a href="#cb3-227" aria-hidden="true" tabindex="-1"></a>summary <span class="op">=</span> <span class="fu">FileAttachment</span>(<span class="st">"data/summary.csv"</span>)<span class="op">.</span><span class="fu">csv</span>({<span class="dt">typed</span><span class="op">:</span> <span class="kw">true</span>})</span>
+<span id="cb3-228"><a href="#cb3-228" aria-hidden="true" tabindex="-1"></a>lamSens <span class="op">=</span> <span class="fu">FileAttachment</span>(<span class="st">"data/lam_sens.csv"</span>)<span class="op">.</span><span class="fu">csv</span>({<span class="dt">typed</span><span class="op">:</span> <span class="kw">true</span>})</span>
+<span id="cb3-229"><a href="#cb3-229" aria-hidden="true" tabindex="-1"></a>armOrder <span class="op">=</span> [<span class="st">"VICReg"</span><span class="op">,</span> <span class="st">"SIGReg"</span><span class="op">,</span> <span class="st">"sliced KSD"</span><span class="op">,</span> <span class="st">"KSD"</span><span class="op">,</span> <span class="st">"MMD"</span><span class="op">,</span> <span class="st">"EMA"</span><span class="op">,</span> <span class="st">"oracle"</span><span class="op">,</span> <span class="st">"none"</span>]</span>
+<span id="cb3-230"><a href="#cb3-230" aria-hidden="true" tabindex="-1"></a><span class="co">// same colours as the paper's figures</span></span>
+<span id="cb3-231"><a href="#cb3-231" aria-hidden="true" tabindex="-1"></a>armRange <span class="op">=</span> [<span class="st">"#1b9e77"</span><span class="op">,</span> <span class="st">"#d95f02"</span><span class="op">,</span> <span class="st">"#7570b3"</span><span class="op">,</span> <span class="st">"#e7298a"</span><span class="op">,</span> <span class="st">"#66a61e"</span><span class="op">,</span> <span class="st">"#000000"</span><span class="op">,</span> <span class="st">"#a6761d"</span><span class="op">,</span> <span class="st">"#999999"</span>]</span>
+<span id="cb3-232"><a href="#cb3-232" aria-hidden="true" tabindex="-1"></a>armColor <span class="op">=</span> ({<span class="dt">domain</span><span class="op">:</span> armOrder<span class="op">,</span> <span class="dt">range</span><span class="op">:</span> armRange<span class="op">,</span> <span class="dt">legend</span><span class="op">:</span> <span class="kw">false</span>})</span>
+<span id="cb3-233"><a href="#cb3-233" aria-hidden="true" tabindex="-1"></a>lamColor <span class="op">=</span> ({<span class="dt">domain</span><span class="op">:</span> lamArmNames<span class="op">,</span> <span class="dt">range</span><span class="op">:</span> lamArmNames<span class="op">.</span><span class="fu">map</span>(a <span class="kw">=&gt;</span> armRange[armOrder<span class="op">.</span><span class="fu">indexOf</span>(a)])<span class="op">,</span> <span class="dt">legend</span><span class="op">:</span> <span class="kw">true</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div id="explorer-data-1">
+<div id="ojs-cell-3-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-data-2">
+<div id="ojs-cell-3-2" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-data-3">
+<div id="ojs-cell-3-3" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-data-4">
+<div id="ojs-cell-3-4" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-data-5">
+<div id="ojs-cell-3-5" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-data-6">
+<div id="ojs-cell-3-6" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+</div>
+<div id="explorer-inputs" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code hidden" id="cb4" data-startfrom="238" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 237;"><span id="cb4-238"><a href="#cb4-238" aria-hidden="true" tabindex="-1"></a>viewof dSel <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">radio</span>([<span class="dv">3</span><span class="op">,</span> <span class="dv">6</span><span class="op">,</span> <span class="dv">12</span><span class="op">,</span> <span class="dv">24</span>]<span class="op">,</span> {<span class="dt">label</span><span class="op">:</span> <span class="st">"Embedding dimension d"</span><span class="op">,</span> <span class="dt">value</span><span class="op">:</span> <span class="dv">12</span>})</span>
+<span id="cb4-239"><a href="#cb4-239" aria-hidden="true" tabindex="-1"></a>viewof sigmaSel <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">radio</span>([<span class="dv">0</span><span class="op">,</span> <span class="fl">0.5</span><span class="op">,</span> <span class="dv">1</span>]<span class="op">,</span> {<span class="dt">label</span><span class="op">:</span> <span class="st">"Noise σ"</span><span class="op">,</span> <span class="dt">value</span><span class="op">:</span> <span class="dv">0</span>})</span>
+<span id="cb4-240"><a href="#cb4-240" aria-hidden="true" tabindex="-1"></a>viewof alphaSel <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">radio</span>([<span class="dv">0</span><span class="op">,</span> <span class="fl">0.5</span><span class="op">,</span> <span class="dv">1</span>]<span class="op">,</span> {<span class="dt">label</span><span class="op">:</span> <span class="st">"Nuisance strength α"</span><span class="op">,</span> <span class="dt">value</span><span class="op">:</span> <span class="dv">1</span>})</span>
+<span id="cb4-241"><a href="#cb4-241" aria-hidden="true" tabindex="-1"></a>viewof armSel <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">checkbox</span>(armOrder<span class="op">,</span> {<span class="dt">label</span><span class="op">:</span> <span class="st">"Arms"</span><span class="op">,</span> <span class="dt">value</span><span class="op">:</span> armOrder<span class="op">.</span><span class="fu">filter</span>(a <span class="kw">=&gt;</span> a <span class="op">!==</span> <span class="st">"none"</span>)})</span>
+<span id="cb4-242"><a href="#cb4-242" aria-hidden="true" tabindex="-1"></a>viewof showKnn <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">toggle</span>({<span class="dt">label</span><span class="op">:</span> <span class="st">"Add kNN leakage"</span><span class="op">,</span> <span class="dt">value</span><span class="op">:</span> <span class="kw">false</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div id="explorer-inputs-1">
+<div id="ojs-cell-4-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-inputs-2">
+<div id="ojs-cell-4-2" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-inputs-3">
+<div id="ojs-cell-4-3" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-inputs-4">
+<div id="ojs-cell-4-4" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-inputs-5">
+<div id="ojs-cell-4-5" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+</div>
+<div id="explorer-cell" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code hidden" id="cb5" data-startfrom="247" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 246;"><span id="cb5-247"><a href="#cb5-247" aria-hidden="true" tabindex="-1"></a>cell <span class="op">=</span> summary<span class="op">.</span><span class="fu">filter</span>(r <span class="kw">=&gt;</span> r<span class="op">.</span><span class="at">tier</span> <span class="op">===</span> <span class="st">"shapes"</span> <span class="op">&amp;&amp;</span> r<span class="op">.</span><span class="at">law</span> <span class="op">===</span> <span class="st">"uniform"</span> <span class="op">&amp;&amp;</span> r<span class="op">.</span><span class="at">prior</span> <span class="op">===</span> <span class="st">"gaussian"</span></span>
+<span id="cb5-248"><a href="#cb5-248" aria-hidden="true" tabindex="-1"></a>  <span class="op">&amp;&amp;</span> r<span class="op">.</span><span class="at">d</span> <span class="op">===</span> dSel <span class="op">&amp;&amp;</span> r<span class="op">.</span><span class="at">sigma</span> <span class="op">===</span> sigmaSel <span class="op">&amp;&amp;</span> r<span class="op">.</span><span class="at">alpha</span> <span class="op">===</span> alphaSel)</span>
+<span id="cb5-249"><a href="#cb5-249" aria-hidden="true" tabindex="-1"></a>cellRows <span class="op">=</span> armOrder<span class="op">.</span><span class="fu">filter</span>(a <span class="kw">=&gt;</span> armSel<span class="op">.</span><span class="fu">includes</span>(a))</span>
+<span id="cb5-250"><a href="#cb5-250" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">map</span>(a <span class="kw">=&gt;</span> cell<span class="op">.</span><span class="fu">find</span>(r <span class="kw">=&gt;</span> r<span class="op">.</span><span class="at">arm_name</span> <span class="op">===</span> a))</span>
+<span id="cb5-251"><a href="#cb5-251" aria-hidden="true" tabindex="-1"></a>  <span class="op">.</span><span class="fu">filter</span>(r <span class="kw">=&gt;</span> r <span class="op">!==</span> <span class="kw">undefined</span>)</span>
+<span id="cb5-252"><a href="#cb5-252" aria-hidden="true" tabindex="-1"></a>notRun <span class="op">=</span> armOrder<span class="op">.</span><span class="fu">filter</span>(a <span class="kw">=&gt;</span> armSel<span class="op">.</span><span class="fu">includes</span>(a) <span class="op">&amp;&amp;</span> <span class="op">!</span>cell<span class="op">.</span><span class="fu">some</span>(r <span class="kw">=&gt;</span> r<span class="op">.</span><span class="at">arm_name</span> <span class="op">===</span> a))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<div id="explorer-cell-1">
+<div id="ojs-cell-5-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-cell-2">
+<div id="ojs-cell-5-2" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="explorer-cell-3">
+<div id="ojs-cell-5-3" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code hidden" id="cb6" data-startfrom="256" data-source-offset="0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 255;"><span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb6-257"><a href="#cb6-257" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> where <span class="op">=</span> <span class="vs">`d = </span><span class="sc">${</span>dSel<span class="sc">}</span><span class="vs">, σ = </span><span class="sc">${</span>sigmaSel<span class="sc">}</span><span class="vs">, α = </span><span class="sc">${</span>alphaSel<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb6-258"><a href="#cb6-258" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (cell<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) {</span>
+<span id="cb6-259"><a href="#cb6-259" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">html</span><span class="vs">`&lt;div style="border:1px solid #ccc;padding:0.8em;border-radius:4px"&gt;</span></span>
+<span id="cb6-260"><a href="#cb6-260" aria-hidden="true" tabindex="-1"></a><span class="vs">      &lt;strong&gt;Not run.&lt;/strong&gt; No arm was trained at </span><span class="sc">${</span>where<span class="sc">}</span><span class="vs">.</span></span>
+<span id="cb6-261"><a href="#cb6-261" aria-hidden="true" tabindex="-1"></a><span class="vs">      Change one setting back toward the base (d = 12, σ = 0, α = 1).&lt;/div&gt;`</span><span class="op">;</span></span>
+<span id="cb6-262"><a href="#cb6-262" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-263"><a href="#cb6-263" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> notRunNote <span class="op">=</span> notRun<span class="op">.</span><span class="at">length</span></span>
+<span id="cb6-264"><a href="#cb6-264" aria-hidden="true" tabindex="-1"></a>    <span class="op">?</span> <span class="fu">html</span><span class="vs">`&lt;p&gt;&lt;em&gt;Not run at </span><span class="sc">${</span>where<span class="sc">}</span><span class="vs">:&lt;/em&gt; </span><span class="sc">${</span>notRun<span class="op">.</span><span class="fu">join</span>(<span class="st">", "</span>)<span class="sc">}</span><span class="vs">.&lt;/p&gt;`</span> <span class="op">:</span> <span class="fu">html</span><span class="vs">`&lt;span&gt;&lt;/span&gt;`</span><span class="op">;</span></span>
+<span id="cb6-265"><a href="#cb6-265" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (cellRows<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> notRunNote<span class="op">;</span></span>
+<span id="cb6-266"><a href="#cb6-266" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> mets <span class="op">=</span> [</span>
+<span id="cb6-267"><a href="#cb6-267" aria-hidden="true" tabindex="-1"></a>    {<span class="dt">key</span><span class="op">:</span> <span class="st">"leak_r2"</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"linear leakage R² (lower is better)"</span>}<span class="op">,</span></span>
+<span id="cb6-268"><a href="#cb6-268" aria-hidden="true" tabindex="-1"></a>    {<span class="dt">key</span><span class="op">:</span> <span class="st">"content_r2"</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"linear content R² (higher is better)"</span>}<span class="op">,</span></span>
+<span id="cb6-269"><a href="#cb6-269" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span>(showKnn <span class="op">?</span> [{<span class="dt">key</span><span class="op">:</span> <span class="st">"leak_knn_r2"</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"kNN leakage R² (lower is better)"</span>}] <span class="op">:</span> [])</span>
+<span id="cb6-270"><a href="#cb6-270" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">;</span></span>
+<span id="cb6-271"><a href="#cb6-271" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> long <span class="op">=</span> cellRows<span class="op">.</span><span class="fu">flatMap</span>(r <span class="kw">=&gt;</span> mets<span class="op">.</span><span class="fu">map</span>(m <span class="kw">=&gt;</span> ({</span>
+<span id="cb6-272"><a href="#cb6-272" aria-hidden="true" tabindex="-1"></a>    <span class="dt">arm</span><span class="op">:</span> r<span class="op">.</span><span class="at">arm_name</span><span class="op">,</span> <span class="dt">metric</span><span class="op">:</span> m<span class="op">.</span><span class="at">label</span><span class="op">,</span> <span class="dt">v</span><span class="op">:</span> r[m<span class="op">.</span><span class="at">key</span>]<span class="op">,</span> <span class="dt">lo</span><span class="op">:</span> r[m<span class="op">.</span><span class="at">key</span> <span class="op">+</span> <span class="st">"_lo"</span>]<span class="op">,</span> <span class="dt">hi</span><span class="op">:</span> r[m<span class="op">.</span><span class="at">key</span> <span class="op">+</span> <span class="st">"_hi"</span>]</span>
+<span id="cb6-273"><a href="#cb6-273" aria-hidden="true" tabindex="-1"></a>  })))<span class="op">;</span></span>
+<span id="cb6-274"><a href="#cb6-274" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> fmt <span class="op">=</span> d3<span class="op">.</span><span class="fu">format</span>(<span class="st">".3f"</span>)<span class="op">;</span></span>
+<span id="cb6-275"><a href="#cb6-275" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> plot <span class="op">=</span> Plot<span class="op">.</span><span class="fu">plot</span>({</span>
+<span id="cb6-276"><a href="#cb6-276" aria-hidden="true" tabindex="-1"></a>    width<span class="op">,</span></span>
+<span id="cb6-277"><a href="#cb6-277" aria-hidden="true" tabindex="-1"></a>    <span class="dt">height</span><span class="op">:</span> <span class="dv">60</span> <span class="op">+</span> <span class="dv">30</span> <span class="op">*</span> cellRows<span class="op">.</span><span class="at">length</span><span class="op">,</span></span>
+<span id="cb6-278"><a href="#cb6-278" aria-hidden="true" tabindex="-1"></a>    <span class="dt">marginLeft</span><span class="op">:</span> <span class="dv">80</span><span class="op">,</span></span>
+<span id="cb6-279"><a href="#cb6-279" aria-hidden="true" tabindex="-1"></a>    <span class="dt">fx</span><span class="op">:</span> {<span class="dt">domain</span><span class="op">:</span> mets<span class="op">.</span><span class="fu">map</span>(m <span class="kw">=&gt;</span> m<span class="op">.</span><span class="at">label</span>)<span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="kw">null</span>}<span class="op">,</span></span>
+<span id="cb6-280"><a href="#cb6-280" aria-hidden="true" tabindex="-1"></a>    <span class="dt">y</span><span class="op">:</span> {<span class="dt">domain</span><span class="op">:</span> cellRows<span class="op">.</span><span class="fu">map</span>(r <span class="kw">=&gt;</span> r<span class="op">.</span><span class="at">arm_name</span>)<span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="kw">null</span>}<span class="op">,</span></span>
+<span id="cb6-281"><a href="#cb6-281" aria-hidden="true" tabindex="-1"></a>    <span class="dt">x</span><span class="op">:</span> {<span class="dt">domain</span><span class="op">:</span> [<span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(<span class="dv">0</span><span class="op">,</span> d3<span class="op">.</span><span class="fu">min</span>(long<span class="op">,</span> d <span class="kw">=&gt;</span> d<span class="op">.</span><span class="at">lo</span>))<span class="op">,</span> <span class="dv">1</span>]<span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"R²"</span><span class="op">,</span> <span class="dt">grid</span><span class="op">:</span> <span class="kw">true</span>}<span class="op">,</span></span>
+<span id="cb6-282"><a href="#cb6-282" aria-hidden="true" tabindex="-1"></a>    <span class="dt">color</span><span class="op">:</span> armColor<span class="op">,</span></span>
+<span id="cb6-283"><a href="#cb6-283" aria-hidden="true" tabindex="-1"></a>    <span class="dt">marks</span><span class="op">:</span> [</span>
+<span id="cb6-284"><a href="#cb6-284" aria-hidden="true" tabindex="-1"></a>      Plot<span class="op">.</span><span class="fu">ruleX</span>([<span class="dv">0</span>]<span class="op">,</span> {<span class="dt">stroke</span><span class="op">:</span> <span class="st">"#bbb"</span>})<span class="op">,</span></span>
+<span id="cb6-285"><a href="#cb6-285" aria-hidden="true" tabindex="-1"></a>      Plot<span class="op">.</span><span class="fu">ruleY</span>(long<span class="op">,</span> {<span class="dt">fx</span><span class="op">:</span> <span class="st">"metric"</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="st">"arm"</span><span class="op">,</span> <span class="dt">x1</span><span class="op">:</span> <span class="st">"lo"</span><span class="op">,</span> <span class="dt">x2</span><span class="op">:</span> <span class="st">"hi"</span><span class="op">,</span> <span class="dt">stroke</span><span class="op">:</span> <span class="st">"arm"</span><span class="op">,</span> <span class="dt">strokeWidth</span><span class="op">:</span> <span class="dv">2</span>})<span class="op">,</span></span>
+<span id="cb6-286"><a href="#cb6-286" aria-hidden="true" tabindex="-1"></a>      Plot<span class="op">.</span><span class="fu">dot</span>(long<span class="op">,</span> {<span class="dt">fx</span><span class="op">:</span> <span class="st">"metric"</span><span class="op">,</span> <span class="dt">y</span><span class="op">:</span> <span class="st">"arm"</span><span class="op">,</span> <span class="dt">x</span><span class="op">:</span> <span class="st">"v"</span><span class="op">,</span> <span class="dt">fill</span><span class="op">:</span> <span class="st">"arm"</span><span class="op">,</span> <span class="dt">r</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span></span>
+<span id="cb6-287"><a href="#cb6-287" aria-hidden="true" tabindex="-1"></a>        <span class="dt">title</span><span class="op">:</span> d <span class="kw">=&gt;</span> <span class="vs">`</span><span class="sc">${</span>d<span class="op">.</span><span class="at">arm</span><span class="sc">}\n${</span>d<span class="op">.</span><span class="at">metric</span><span class="sc">}</span><span class="vs">: </span><span class="sc">${</span><span class="fu">fmt</span>(d<span class="op">.</span><span class="at">v</span>)<span class="sc">}</span><span class="vs"> [</span><span class="sc">${</span><span class="fu">fmt</span>(d<span class="op">.</span><span class="at">lo</span>)<span class="sc">}</span><span class="vs">, </span><span class="sc">${</span><span class="fu">fmt</span>(d<span class="op">.</span><span class="at">hi</span>)<span class="sc">}</span><span class="vs">]`</span><span class="op">,</span> <span class="dt">tip</span><span class="op">:</span> <span class="kw">true</span>})</span>
+<span id="cb6-288"><a href="#cb6-288" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb6-289"><a href="#cb6-289" aria-hidden="true" tabindex="-1"></a>  })<span class="op">;</span></span>
+<span id="cb6-290"><a href="#cb6-290" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="fu">html</span><span class="vs">`</span><span class="sc">${</span>plot<span class="sc">}${</span>notRunNote<span class="sc">}</span><span class="vs">`</span><span class="op">;</span></span>
+<span id="cb6-291"><a href="#cb6-291" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="explorer-plot" class="cell-output cell-output-display">
+<div id="ojs-cell-6" data-nodetype="expression">
+
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code hidden" id="cb7" data-startfrom="296" data-source-offset="0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 295;"><span id="cb7-296"><a href="#cb7-296" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb7-297"><a href="#cb7-297" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (cellRows<span class="op">.</span><span class="at">length</span> <span class="op">===</span> <span class="dv">0</span>) <span class="cf">return</span> <span class="fu">html</span><span class="vs">`&lt;span&gt;&lt;/span&gt;`</span><span class="op">;</span></span>
+<span id="cb7-298"><a href="#cb7-298" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> fmt <span class="op">=</span> d3<span class="op">.</span><span class="fu">format</span>(<span class="st">".3f"</span>)<span class="op">;</span></span>
+<span id="cb7-299"><a href="#cb7-299" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ci <span class="op">=</span> (r<span class="op">,</span> m) <span class="kw">=&gt;</span> <span class="vs">`</span><span class="sc">${</span><span class="fu">fmt</span>(r[m])<span class="sc">}</span><span class="vs"> [</span><span class="sc">${</span><span class="fu">fmt</span>(r[m <span class="op">+</span> <span class="st">"_lo"</span>])<span class="sc">}</span><span class="vs">, </span><span class="sc">${</span><span class="fu">fmt</span>(r[m <span class="op">+</span> <span class="st">"_hi"</span>])<span class="sc">}</span><span class="vs">]`</span><span class="op">;</span></span>
+<span id="cb7-300"><a href="#cb7-300" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> Inputs<span class="op">.</span><span class="fu">table</span>(cellRows<span class="op">.</span><span class="fu">map</span>(r <span class="kw">=&gt;</span> ({</span>
+<span id="cb7-301"><a href="#cb7-301" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Arm"</span><span class="op">:</span> r<span class="op">.</span><span class="at">arm_name</span><span class="op">,</span></span>
+<span id="cb7-302"><a href="#cb7-302" aria-hidden="true" tabindex="-1"></a>    <span class="st">"λ (EMA: decay τ)"</span><span class="op">:</span> r<span class="op">.</span><span class="at">arm</span> <span class="op">===</span> <span class="st">"ema"</span> <span class="op">?</span> r<span class="op">.</span><span class="at">ema_tau</span> <span class="op">:</span> r<span class="op">.</span><span class="at">lam</span><span class="op">,</span></span>
+<span id="cb7-303"><a href="#cb7-303" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Linear leakage"</span><span class="op">:</span> <span class="fu">ci</span>(r<span class="op">,</span> <span class="st">"leak_r2"</span>)<span class="op">,</span></span>
+<span id="cb7-304"><a href="#cb7-304" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Linear content"</span><span class="op">:</span> <span class="fu">ci</span>(r<span class="op">,</span> <span class="st">"content_r2"</span>)<span class="op">,</span></span>
+<span id="cb7-305"><a href="#cb7-305" aria-hidden="true" tabindex="-1"></a>    <span class="op">...</span>(showKnn <span class="op">?</span> {<span class="st">"kNN leakage"</span><span class="op">:</span> <span class="fu">ci</span>(r<span class="op">,</span> <span class="st">"leak_knn_r2"</span>)} <span class="op">:</span> {})<span class="op">,</span></span>
+<span id="cb7-306"><a href="#cb7-306" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Collapsed seeds"</span><span class="op">:</span> <span class="vs">`</span><span class="sc">${</span><span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(r<span class="op">.</span><span class="at">collapsed_frac</span> <span class="op">*</span> r<span class="op">.</span><span class="at">n_seeds</span>)<span class="sc">}</span><span class="vs"> of </span><span class="sc">${</span>r<span class="op">.</span><span class="at">n_seeds</span><span class="sc">}</span><span class="vs">`</span></span>
+<span id="cb7-307"><a href="#cb7-307" aria-hidden="true" tabindex="-1"></a>  }))<span class="op">,</span> {<span class="dt">layout</span><span class="op">:</span> <span class="st">"auto"</span>})<span class="op">;</span></span>
+<span id="cb7-308"><a href="#cb7-308" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div id="explorer-table" class="cell-output cell-output-display">
+<div id="ojs-cell-7" data-nodetype="expression">
+
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="other-results" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="other-results"><span class="header-section-number">7</span> Other results</h2>
+<ul>
+<li><strong>Matched priors</strong> (identifiability = how well a rotation and scaling of the embedding recovers the content factors). When the content factors follow a non-Gaussian law, KSD toward a matched prior does not beat KSD toward <span class="math inline">\(N(0, I)\)</span>.
+<ul>
+<li>Uniform law: matched 0.554 [0.501, 0.598] vs Gaussian target 0.576 [0.543, 0.595].</li>
+<li>Laplace law: matched 0.276 [0.235, 0.317] vs Gaussian target 0.772 [0.717, 0.813].</li>
+</ul></li>
+<li><strong>EMA under nuisance.</strong> EMA’s leakage responds to <span class="math inline">\(\alpha\)</span> like the regularisers’ (difference from KSD’s response: −0.048 [−0.161, 0.055]). Its geometry differs: effective rank (roughly, how many dimensions the embedding uses) is 4.0 for EMA against 11.0 for SIGReg.</li>
+<li><strong>Temporal clips.</strong> EMA alone leaks 0.484 [0.381, 0.601], sliced KSD alone 0.098 [0.033, 0.164]. Adding sliced KSD to EMA raises leakage by +0.229 [0.110, 0.337].</li>
+<li><strong>Autoencoders.</strong> β-VAE, KSD-AE and MMD-AE leak 0.809, 0.912 and 0.855. 21 of 21 autoencoder minus JEPA contrasts are positive; the smallest is β-VAE − VICReg, +0.136 [0.028, 0.267].</li>
+<li><strong>CIFAR-10.</strong> Augmentation leakage is small for every arm, from 0.018 (KSD) to 0.049 (EMA). KSD has the best linear class accuracy, 0.357 [0.350, 0.365].</li>
+</ul>
+<div id="fig-temporal-ae" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-temporal-ae-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="figures/fig7_h5_h6.svg" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-temporal-ae-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Left: linear and kNN leakage in the temporal tier. Right: leakage of the seven regularised JEPA arms and three autoencoders on 3DShapes at <span class="math inline">\(d\)</span> = 12.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="constraints" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="constraints"><span class="header-section-number">8</span> Constraints</h2>
+<ul>
+<li><strong>One small rendered world.</strong> A small convolutional encoder, 2000 steps, rendered scenes downsampled to 32×32. Large encoders on photographs may behave differently; the CIFAR-10 tier is a single slice.</li>
+<li><strong>λ tuned once.</strong> Levels were chosen at the base setting and reused for the <span class="math inline">\(d\)</span>, <span class="math inline">\(\sigma\)</span> and <span class="math inline">\(\alpha\)</span> slices, so part of the width and noise effects may come from a <span class="math inline">\(\lambda\)</span> that is no longer the best there. Several arms, KSD and sliced KSD included, were tuned at the lowest <span class="math inline">\(\lambda\)</span> of their grids.</li>
+<li><strong>Linear leakage is the headline.</strong> Low linear leakage is not absence of nuisance: KSD’s kNN leakage at the base setting is 0.191 [0.172, 0.213] against linear 0.002, and SIGReg’s kNN leakage exceeds EMA’s (+0.158 [0.094, 0.217]).</li>
+<li><strong>One kind of noise.</strong> <span class="math inline">\(\sigma\)</span> is noise on the predictor input. Other information bottlenecks were not tested.</li>
+<li><strong>Collapse at <span class="math inline">\(d = 3\)</span>.</strong> EMA and MMD collapsed in some seeds at <span class="math inline">\(d = 3\)</span>; the explorer table lists the count.</li>
+<li><strong>Five seeds.</strong> Intervals are percentile bootstraps over 5 unpaired seeds. Read intervals that just touch zero as weak.</li>
+</ul>
+<p>Pressure. Buys. Leakage. Width. Filters. Nuisance. Noise. Hurts. Targets. Matter. Less.</p>
+</section>
+<section id="references" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="references"><span class="header-section-number">9</span> References</h2>
+<ul>
+<li>Assran, M. et al.&nbsp;(2023). Self-Supervised Learning From Images With a Joint-Embedding Predictive Architecture. CVPR, pp.&nbsp;15619–15629.</li>
+<li>Balestriero, R. &amp; LeCun, Y. (2025). LeJEPA: Provable and Scalable Self-Supervised Learning Without the Heuristics. <a href="https://arxiv.org/abs/2511.08544" class="uri">https://arxiv.org/abs/2511.08544</a></li>
+<li>Bardes, A., Ponce, J. &amp; LeCun, Y. (2022). VICReg: Variance-Invariance-Covariance Regularization for Self-Supervised Learning. ICLR. <a href="https://arxiv.org/abs/2105.04906" class="uri">https://arxiv.org/abs/2105.04906</a></li>
+<li>Burgess, C. &amp; Kim, H. (2018). 3D Shapes Dataset. DeepMind. <a href="https://github.com/deepmind/3dshapes-dataset/" class="uri">https://github.com/deepmind/3dshapes-dataset/</a></li>
+<li>Gong, W., Li, Y. &amp; Hernández-Lobato, J. M. (2021). Sliced Kernelized Stein Discrepancy. ICLR. <a href="https://arxiv.org/abs/2006.16531" class="uri">https://arxiv.org/abs/2006.16531</a></li>
+<li>Gorham, J. &amp; Mackey, L. (2017). Measuring Sample Quality with Kernels. ICML. <a href="https://proceedings.mlr.press/v70/gorham17a.html" class="uri">https://proceedings.mlr.press/v70/gorham17a.html</a></li>
+<li>Higgins, I. et al.&nbsp;(2017). β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework. ICLR. <a href="https://openreview.net/pdf?id=Sy2fzU9gl" class="uri">https://openreview.net/pdf?id=Sy2fzU9gl</a></li>
+<li>Krizhevsky, A. (2009). Learning Multiple Layers of Features from Tiny Images. Technical report. <a href="https://www.cs.toronto.edu/~kriz/cifar.html" class="uri">https://www.cs.toronto.edu/~kriz/cifar.html</a></li>
+<li>Liu, Q., Lee, J. &amp; Jordan, M. (2016). A Kernelized Stein Discrepancy for Goodness-of-fit Tests. ICML. <a href="https://proceedings.mlr.press/v48/liub16.html" class="uri">https://proceedings.mlr.press/v48/liub16.html</a></li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W3sibWV0aG9kTmFtZSI6ImludGVycHJldCIsImNlbGxOYW1lIjoib2pzLWNlbGwtMSIsImlubGluZSI6ZmFsc2UsInNvdXJjZSI6ImxhbUFybU5hbWVzID0gW1wiVklDUmVnXCIsIFwiU0lHUmVnXCIsIFwic2xpY2VkIEtTRFwiLCBcIktTRFwiLCBcIk1NRFwiLCBcIm9yYWNsZVwiXVxudmlld29mIGxhbUFybXMgPSBJbnB1dHMuY2hlY2tib3gobGFtQXJtTmFtZXMsIHtsYWJlbDogXCJSZWd1bGFyaXNlclwiLCB2YWx1ZTogbGFtQXJtTmFtZXN9KVxuIn0seyJtZXRob2ROYW1lIjoiaW50ZXJwcmV0IiwiY2VsbE5hbWUiOiJvanMtY2VsbC0yIiwiaW5saW5lIjpmYWxzZSwic291cmNlIjoie1xuICBpZiAobGFtQXJtcy5sZW5ndGggPT09IDApIHJldHVybiBodG1sYDxwPjxlbT5TZWxlY3QgYXQgbGVhc3Qgb25lIHJlZ3VsYXJpc2VyLjwvZW0+PC9wPmA7XG4gIGNvbnN0IG1ldHMgPSBbXG4gICAge2tleTogXCJsZWFrX3IyXCIsIGxhYmVsOiBcImxpbmVhciBsZWFrYWdlIFLCsiAobG93ZXIgaXMgYmV0dGVyKVwifSxcbiAgICB7a2V5OiBcImNvbnRlbnRfcjJcIiwgbGFiZWw6IFwibGluZWFyIGNvbnRlbnQgUsKyIChoaWdoZXIgaXMgYmV0dGVyKVwifVxuICBdO1xuICBjb25zdCBsb25nID0gbGFtU2Vuc1xuICAgIC5maWx0ZXIociA9PiBsYW1Bcm1zLmluY2x1ZGVzKHIuYXJtX25hbWUpKVxuICAgIC5mbGF0TWFwKHIgPT4gbWV0cy5tYXAobSA9PiAoe1xuICAgICAgYXJtOiByLmFybV9uYW1lLFxuICAgICAgbWV0cmljOiBtLmxhYmVsLFxuICAgICAgbGFtOiByLmxhbSxcbiAgICAgIHg6IHIubGFtX3JlbCAqIE1hdGgucG93KDIsIChsYW1Bcm1OYW1lcy5pbmRleE9mKHIuYXJtX25hbWUpIC0gMi41KSAvIDI1KSxcbiAgICAgIHY6IHJbbS5rZXldLCBsbzogclttLmtleSArIFwiX2xvXCJdLCBoaTogclttLmtleSArIFwiX2hpXCJdXG4gICAgfSkpKTtcbiAgY29uc3QgZm10ID0gZDMuZm9ybWF0KFwiLjNmXCIpO1xuICByZXR1cm4gUGxvdC5wbG90KHtcbiAgICB3aWR0aCxcbiAgICBoZWlnaHQ6IDMyMCxcbiAgICBtYXJnaW5Cb3R0b206IDQwLFxuICAgIGZ4OiB7ZG9tYWluOiBtZXRzLm1hcChtID0+IG0ubGFiZWwpLCBsYWJlbDogbnVsbH0sXG4gICAgeDoge3R5cGU6IFwibG9nXCIsIGxhYmVsOiBcIs67IMO3IHR1bmVkIM67XCIsIHRpY2tzOiBbMS81LCAxLCA1LCAyNV0sXG4gICAgICAgIHRpY2tGb3JtYXQ6IHQgPT4gdCA8IDEgPyBcIjEvXCIgKyBNYXRoLnJvdW5kKDEgLyB0KSA6IFN0cmluZyh0KX0sXG4gICAgeToge2xhYmVsOiBcIlLCslwiLCBncmlkOiB0cnVlLCBkb21haW46IFtNYXRoLm1pbigwLCBkMy5taW4obG9uZywgZCA9PiBkLmxvKSksIDFdfSxcbiAgICBjb2xvcjogbGFtQ29sb3IsXG4gICAgbWFya3M6IFtcbiAgICAgIFBsb3QucnVsZVgoWzFdLCB7c3Ryb2tlOiBcIiM5OTlcIiwgc3Ryb2tlRGFzaGFycmF5OiBcIjIsM1wifSksXG4gICAgICBQbG90LmxpbmUobG9uZywge2Z4OiBcIm1ldHJpY1wiLCB4OiBcInhcIiwgeTogXCJ2XCIsIHo6IFwiYXJtXCIsIHN0cm9rZTogXCJhcm1cIiwgc29ydDogXCJ4XCJ9KSxcbiAgICAgIFBsb3QucnVsZVgobG9uZywge2Z4OiBcIm1ldHJpY1wiLCB4OiBcInhcIiwgeTE6IFwibG9cIiwgeTI6IFwiaGlcIiwgc3Ryb2tlOiBcImFybVwifSksXG4gICAgICBQbG90LmRvdChsb25nLCB7Zng6IFwibWV0cmljXCIsIHg6IFwieFwiLCB5OiBcInZcIiwgZmlsbDogXCJhcm1cIiwgcjogMy41LFxuICAgICAgICB0aXRsZTogZCA9PiBgJHtkLmFybX0sIM67ID0gJHtkLmxhbX1cXG4ke2QubWV0cmljfTogJHtmbXQoZC52KX0gWyR7Zm10KGQubG8pfSwgJHtmbXQoZC5oaSl9XWAsXG4gICAgICAgIHRpcDogdHJ1ZX0pXG4gICAgXVxuICB9KTtcbn1cbiJ9LHsibWV0aG9kTmFtZSI6ImludGVycHJldCIsImNlbGxOYW1lIjoib2pzLWNlbGwtMyIsImlubGluZSI6ZmFsc2UsInNvdXJjZSI6InN1bW1hcnkgPSBGaWxlQXR0YWNobWVudChcImRhdGEvc3VtbWFyeS5jc3ZcIikuY3N2KHt0eXBlZDogdHJ1ZX0pXG5sYW1TZW5zID0gRmlsZUF0dGFjaG1lbnQoXCJkYXRhL2xhbV9zZW5zLmNzdlwiKS5jc3Yoe3R5cGVkOiB0cnVlfSlcbmFybU9yZGVyID0gW1wiVklDUmVnXCIsIFwiU0lHUmVnXCIsIFwic2xpY2VkIEtTRFwiLCBcIktTRFwiLCBcIk1NRFwiLCBcIkVNQVwiLCBcIm9yYWNsZVwiLCBcIm5vbmVcIl1cbi8vIHNhbWUgY29sb3VycyBhcyB0aGUgcGFwZXIncyBmaWd1cmVzXG5hcm1SYW5nZSA9IFtcIiMxYjllNzdcIiwgXCIjZDk1ZjAyXCIsIFwiIzc1NzBiM1wiLCBcIiNlNzI5OGFcIiwgXCIjNjZhNjFlXCIsIFwiIzAwMDAwMFwiLCBcIiNhNjc2MWRcIiwgXCIjOTk5OTk5XCJdXG5hcm1Db2xvciA9ICh7ZG9tYWluOiBhcm1PcmRlciwgcmFuZ2U6IGFybVJhbmdlLCBsZWdlbmQ6IGZhbHNlfSlcbmxhbUNvbG9yID0gKHtkb21haW46IGxhbUFybU5hbWVzLCByYW5nZTogbGFtQXJtTmFtZXMubWFwKGEgPT4gYXJtUmFuZ2VbYXJtT3JkZXIuaW5kZXhPZihhKV0pLCBsZWdlbmQ6IHRydWV9KVxuIn0seyJtZXRob2ROYW1lIjoiaW50ZXJwcmV0IiwiY2VsbE5hbWUiOiJvanMtY2VsbC00IiwiaW5saW5lIjpmYWxzZSwic291cmNlIjoidmlld29mIGRTZWwgPSBJbnB1dHMucmFkaW8oWzMsIDYsIDEyLCAyNF0sIHtsYWJlbDogXCJFbWJlZGRpbmcgZGltZW5zaW9uIGRcIiwgdmFsdWU6IDEyfSlcbnZpZXdvZiBzaWdtYVNlbCA9IElucHV0cy5yYWRpbyhbMCwgMC41LCAxXSwge2xhYmVsOiBcIk5vaXNlIM+DXCIsIHZhbHVlOiAwfSlcbnZpZXdvZiBhbHBoYVNlbCA9IElucHV0cy5yYWRpbyhbMCwgMC41LCAxXSwge2xhYmVsOiBcIk51aXNhbmNlIHN0cmVuZ3RoIM6xXCIsIHZhbHVlOiAxfSlcbnZpZXdvZiBhcm1TZWwgPSBJbnB1dHMuY2hlY2tib3goYXJtT3JkZXIsIHtsYWJlbDogXCJBcm1zXCIsIHZhbHVlOiBhcm1PcmRlci5maWx0ZXIoYSA9PiBhICE9PSBcIm5vbmVcIil9KVxudmlld29mIHNob3dLbm4gPSBJbnB1dHMudG9nZ2xlKHtsYWJlbDogXCJBZGQga05OIGxlYWthZ2VcIiwgdmFsdWU6IGZhbHNlfSlcbiJ9LHsibWV0aG9kTmFtZSI6ImludGVycHJldCIsImNlbGxOYW1lIjoib2pzLWNlbGwtNSIsImlubGluZSI6ZmFsc2UsInNvdXJjZSI6ImNlbGwgPSBzdW1tYXJ5LmZpbHRlcihyID0+IHIudGllciA9PT0gXCJzaGFwZXNcIiAmJiByLmxhdyA9PT0gXCJ1bmlmb3JtXCIgJiYgci5wcmlvciA9PT0gXCJnYXVzc2lhblwiXG4gICYmIHIuZCA9PT0gZFNlbCAmJiByLnNpZ21hID09PSBzaWdtYVNlbCAmJiByLmFscGhhID09PSBhbHBoYVNlbClcbmNlbGxSb3dzID0gYXJtT3JkZXIuZmlsdGVyKGEgPT4gYXJtU2VsLmluY2x1ZGVzKGEpKVxuICAubWFwKGEgPT4gY2VsbC5maW5kKHIgPT4gci5hcm1fbmFtZSA9PT0gYSkpXG4gIC5maWx0ZXIociA9PiByICE9PSB1bmRlZmluZWQpXG5ub3RSdW4gPSBhcm1PcmRlci5maWx0ZXIoYSA9PiBhcm1TZWwuaW5jbHVkZXMoYSkgJiYgIWNlbGwuc29tZShyID0+IHIuYXJtX25hbWUgPT09IGEpKVxuIn0seyJtZXRob2ROYW1lIjoiaW50ZXJwcmV0IiwiY2VsbE5hbWUiOiJvanMtY2VsbC02IiwiaW5saW5lIjpmYWxzZSwic291cmNlIjoie1xuICBjb25zdCB3aGVyZSA9IGBkID0gJHtkU2VsfSwgz4MgPSAke3NpZ21hU2VsfSwgzrEgPSAke2FscGhhU2VsfWA7XG4gIGlmIChjZWxsLmxlbmd0aCA9PT0gMCkge1xuICAgIHJldHVybiBodG1sYDxkaXYgc3R5bGU9XCJib3JkZXI6MXB4IHNvbGlkICNjY2M7cGFkZGluZzowLjhlbTtib3JkZXItcmFkaXVzOjRweFwiPlxuICAgICAgPHN0cm9uZz5Ob3QgcnVuLjwvc3Ryb25nPiBObyBhcm0gd2FzIHRyYWluZWQgYXQgJHt3aGVyZX0uXG4gICAgICBDaGFuZ2Ugb25lIHNldHRpbmcgYmFjayB0b3dhcmQgdGhlIGJhc2UgKGQgPSAxMiwgz4MgPSAwLCDOsSA9IDEpLjwvZGl2PmA7XG4gIH1cbiAgY29uc3Qgbm90UnVuTm90ZSA9IG5vdFJ1bi5sZW5ndGhcbiAgICA/IGh0bWxgPHA+PGVtPk5vdCBydW4gYXQgJHt3aGVyZX06PC9lbT4gJHtub3RSdW4uam9pbihcIiwgXCIpfS48L3A+YCA6IGh0bWxgPHNwYW4+PC9zcGFuPmA7XG4gIGlmIChjZWxsUm93cy5sZW5ndGggPT09IDApIHJldHVybiBub3RSdW5Ob3RlO1xuICBjb25zdCBtZXRzID0gW1xuICAgIHtrZXk6IFwibGVha19yMlwiLCBsYWJlbDogXCJsaW5lYXIgbGVha2FnZSBSwrIgKGxvd2VyIGlzIGJldHRlcilcIn0sXG4gICAge2tleTogXCJjb250ZW50X3IyXCIsIGxhYmVsOiBcImxpbmVhciBjb250ZW50IFLCsiAoaGlnaGVyIGlzIGJldHRlcilcIn0sXG4gICAgLi4uKHNob3dLbm4gPyBbe2tleTogXCJsZWFrX2tubl9yMlwiLCBsYWJlbDogXCJrTk4gbGVha2FnZSBSwrIgKGxvd2VyIGlzIGJldHRlcilcIn1dIDogW10pXG4gIF07XG4gIGNvbnN0IGxvbmcgPSBjZWxsUm93cy5mbGF0TWFwKHIgPT4gbWV0cy5tYXAobSA9PiAoe1xuICAgIGFybTogci5hcm1fbmFtZSwgbWV0cmljOiBtLmxhYmVsLCB2OiByW20ua2V5XSwgbG86IHJbbS5rZXkgKyBcIl9sb1wiXSwgaGk6IHJbbS5rZXkgKyBcIl9oaVwiXVxuICB9KSkpO1xuICBjb25zdCBmbXQgPSBkMy5mb3JtYXQoXCIuM2ZcIik7XG4gIGNvbnN0IHBsb3QgPSBQbG90LnBsb3Qoe1xuICAgIHdpZHRoLFxuICAgIGhlaWdodDogNjAgKyAzMCAqIGNlbGxSb3dzLmxlbmd0aCxcbiAgICBtYXJnaW5MZWZ0OiA4MCxcbiAgICBmeDoge2RvbWFpbjogbWV0cy5tYXAobSA9PiBtLmxhYmVsKSwgbGFiZWw6IG51bGx9LFxuICAgIHk6IHtkb21haW46IGNlbGxSb3dzLm1hcChyID0+IHIuYXJtX25hbWUpLCBsYWJlbDogbnVsbH0sXG4gICAgeDoge2RvbWFpbjogW01hdGgubWluKDAsIGQzLm1pbihsb25nLCBkID0+IGQubG8pKSwgMV0sIGxhYmVsOiBcIlLCslwiLCBncmlkOiB0cnVlfSxcbiAgICBjb2xvcjogYXJtQ29sb3IsXG4gICAgbWFya3M6IFtcbiAgICAgIFBsb3QucnVsZVgoWzBdLCB7c3Ryb2tlOiBcIiNiYmJcIn0pLFxuICAgICAgUGxvdC5ydWxlWShsb25nLCB7Zng6IFwibWV0cmljXCIsIHk6IFwiYXJtXCIsIHgxOiBcImxvXCIsIHgyOiBcImhpXCIsIHN0cm9rZTogXCJhcm1cIiwgc3Ryb2tlV2lkdGg6IDJ9KSxcbiAgICAgIFBsb3QuZG90KGxvbmcsIHtmeDogXCJtZXRyaWNcIiwgeTogXCJhcm1cIiwgeDogXCJ2XCIsIGZpbGw6IFwiYXJtXCIsIHI6IDQsXG4gICAgICAgIHRpdGxlOiBkID0+IGAke2QuYXJtfVxcbiR7ZC5tZXRyaWN9OiAke2ZtdChkLnYpfSBbJHtmbXQoZC5sbyl9LCAke2ZtdChkLmhpKX1dYCwgdGlwOiB0cnVlfSlcbiAgICBdXG4gIH0pO1xuICByZXR1cm4gaHRtbGAke3Bsb3R9JHtub3RSdW5Ob3RlfWA7XG59XG4ifSx7Im1ldGhvZE5hbWUiOiJpbnRlcnByZXQiLCJjZWxsTmFtZSI6Im9qcy1jZWxsLTciLCJpbmxpbmUiOmZhbHNlLCJzb3VyY2UiOiJ7XG4gIGlmIChjZWxsUm93cy5sZW5ndGggPT09IDApIHJldHVybiBodG1sYDxzcGFuPjwvc3Bhbj5gO1xuICBjb25zdCBmbXQgPSBkMy5mb3JtYXQoXCIuM2ZcIik7XG4gIGNvbnN0IGNpID0gKHIsIG0pID0+IGAke2ZtdChyW21dKX0gWyR7Zm10KHJbbSArIFwiX2xvXCJdKX0sICR7Zm10KHJbbSArIFwiX2hpXCJdKX1dYDtcbiAgcmV0dXJuIElucHV0cy50YWJsZShjZWxsUm93cy5tYXAociA9PiAoe1xuICAgIFwiQXJtXCI6IHIuYXJtX25hbWUsXG4gICAgXCLOuyAoRU1BOiBkZWNheSDPhClcIjogci5hcm0gPT09IFwiZW1hXCIgPyByLmVtYV90YXUgOiByLmxhbSxcbiAgICBcIkxpbmVhciBsZWFrYWdlXCI6IGNpKHIsIFwibGVha19yMlwiKSxcbiAgICBcIkxpbmVhciBjb250ZW50XCI6IGNpKHIsIFwiY29udGVudF9yMlwiKSxcbiAgICAuLi4oc2hvd0tubiA/IHtcImtOTiBsZWFrYWdlXCI6IGNpKHIsIFwibGVha19rbm5fcjJcIil9IDoge30pLFxuICAgIFwiQ29sbGFwc2VkIHNlZWRzXCI6IGAke01hdGgucm91bmQoci5jb2xsYXBzZWRfZnJhYyAqIHIubl9zZWVkcyl9IG9mICR7ci5uX3NlZWRzfWBcbiAgfSkpLCB7bGF5b3V0OiBcImF1dG9cIn0pO1xufVxuIn0seyJtZXRob2ROYW1lIjoiaW50ZXJwcmV0UXVpZXQiLCJzb3VyY2UiOiJzaGlueUlucHV0KCdsYW1Bcm1zJykifSx7Im1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6InNoaW55SW5wdXQoJ2RTZWwnKSJ9LHsibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoic2hpbnlJbnB1dCgnc2lnbWFTZWwnKSJ9LHsibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoic2hpbnlJbnB1dCgnYWxwaGFTZWwnKSJ9LHsibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoic2hpbnlJbnB1dCgnYXJtU2VsJykifSx7Im1ldGhvZE5hbWUiOiJpbnRlcnByZXRRdWlldCIsInNvdXJjZSI6InNoaW55SW5wdXQoJ3Nob3dLbm4nKSJ9XX0=
+</script>
+<script type="module">
+if (window.location.protocol === "file:") { alert("The OJS runtime does not work with file:// URLs. Please use a web server to view this document."); }
+window._ojs.paths.runtimeToDoc = "../../..";
+window._ojs.paths.runtimeToRoot = "../../../..";
+window._ojs.paths.docToRoot = "..";
+window._ojs.selfContained = false;
+window._ojs.runtime.interpretFromScriptTags();
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

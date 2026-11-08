@@ -1,0 +1,345 @@
+---
+title: "Nuisance leakage in JEPA embeddings"
+subtitle: "Regulariser strength, embedding width and noise on 3DShapes"
+author: "Ravi Kalia"
+date: "2026-11-08"
+categories: [self-supervised learning, JEPA, Stein discrepancy]
+metadata-files:
+  - data/numbers.yml
+format:
+  html:
+    toc: true
+    number-sections: true
+echo: false
+resources:
+  - data/summary.csv
+  - data/lam_sens.csv
+---
+
+Self-supervised image encoders keep some detail they were meant to ignore; on rendered images where that detail is known, the amount is set mainly by how hard the anti-collapse regulariser pushes and by the embedding width, not by which target distribution it pushes toward.
+
+Anyone who has trained a contrastive or predictive encoder has written an augmentation pipeline: crop, flip, recolour. The pipeline encodes a wish: whatever it changes, the encoder should ignore. The training loss never checks the wish. On photographs it cannot be checked, because nobody has a list of everything that differs between two views. A rendered dataset with known generating factors supplies that list and turns the wish into a number.
+
+Three ideas carry the results:
+
+1. **Leakage**: how well a simple probe reads the ignored factors back out of the embedding. Known factors make it measurable.
+2. **Regulariser strength**, not the target law, controls leakage.
+3. **Embedding width** is a better nuisance filter than injected noise here.
+
+The full write-up, with every table, is the [paper](../paper/paper.pdf).
+
+## Joint-embedding prediction
+
+A joint-embedding predictive architecture (JEPA; Assran et al. 2023) learns from pairs of views of one scene.
+
+- An **encoder** maps an image to an embedding of $d$ numbers.
+- A small **predictor** maps view 1's embedding to a guess at view 2's embedding.
+- Training lowers the prediction error, in both directions.
+
+The loss has a trivial minimum: map every image to the same vector and the error is zero. This is **collapse**. Every JEPA needs a second ingredient to stop it. The study compares eight:
+
+- **EMA target**: view 2's embedding comes from a slowly updated copy of the encoder, and no gradient flows through it.
+- **VICReg** (Bardes et al. 2022): penalises embedding dimensions whose spread is too small, and correlations between dimensions. It names no target distribution.
+- **SIGReg** (Balestriero & LeCun 2025): pushes random one-dimensional projections of the batch toward a standard normal.
+- **KSD**: the kernel Stein discrepancy (Liu et al. 2016) measures how far a batch is from a target density using only the gradient of the target's log-density. Here the kernel is inverse multiquadric (Gorham & Mackey 2017) and the target is $N(0, I)$.
+- **Sliced KSD** (Gong et al. 2021): KSD along random directions.
+- **MMD**: compares the batch with a fresh sample from $N(0, I)$ through kernel averages.
+- **Oracle**: KSD toward a target that knows the content dimension $k = 6$: six full-size dimensions, the rest shrunk.
+- **None**: no regulariser. It collapses in {{< meta n.none_collapsed_frac >}} of seeds.
+
+All regularised arms add one term, weighted by $\lambda$, to the prediction loss. SIGReg, KSD, sliced KSD and MMD all aim at an isotropic Gaussian.
+
+## Data
+
+### 3DShapes
+
+- **Source.** 3DShapes (Burgess & Kim 2018) is a DeepMind dataset of 480,000 rendered 64×64 images. Each shows one object in a room, at every combination of six factors: floor hue, wall hue, object hue, object scale, object shape and orientation.
+- **Motive.** It was built to test whether a model recovers known generating factors.
+- **Use here.** The six factors split into two groups:
+  - **content**, shared by both views: object hue, scale and shape, coded as $k = 6$ numbers;
+  - **nuisance**, which may differ between views: floor hue, wall hue and orientation.
+- **Views.** Two images share content. Each nuisance factor is redrawn with probability $\alpha$, and light pixel noise is added. At $\alpha = 0$ the views differ only by pixel noise.
+- **Why the method fits.** All six factors are recorded for every image, so a probe can be aimed at the nuisance and nothing else.
+- **Cost of a wrong answer.** A practitioner who blames the target distribution for leakage would swap regularisers when the fix is a weight or a width.
+
+![Four example view pairs at $\alpha$ = 0, 0.5 and 1 (rows). Content (object shape, scale, hue) is shared within a pair; floor hue, wall hue and orientation are redrawn with probability $\alpha$.](figures/fig1_views.svg){#fig-views}
+
+### Other tiers
+
+- **Temporal clips.** Three-frame 3DShapes clips in which nuisance factors drift one step per frame with probability $\alpha$. The model predicts frame 3's embedding from frames 1 and 2.
+- **Autoencoders.** A β-VAE (Higgins et al. 2017) and KSD and MMD autoencoders at the same $d$. They reconstruct pixels, so they serve as a reference for models that must keep everything.
+- **CIFAR-10.** CIFAR-10 (Krizhevsky 2009) is 60,000 labelled 32×32 photographs in 10 classes, built as a classification benchmark. Its nuisance is the augmentation parameters (crop box, flip, colour jitter), known because the pipeline draws them.
+
+## Leakage
+
+Leakage asks whether the ignored factors can still be read off the trained embedding:
+
+- Freeze the encoder.
+- Embed 10,000 training-split images and fit a linear regression from embedding to nuisance factors.
+- Score $R^2$ on 5,000 images from a held-out 10% of factor combinations.
+
+That $R^2$ is the **leakage**. Zero means the nuisance is not linearly readable; one means it is fully readable. The same probe aimed at the content factors gives **content $R^2$**. A good encoder has high content $R^2$ and low leakage.
+
+A k-nearest-neighbour probe (10 neighbours) gives a second, nonlinear leakage score. On photographs neither probe has a target, because the list of what differs between two views is unknown.
+
+## Protocol
+
+- **Encoder.** A small convolutional network with no normalisation layers, $d \in \{3, 6, 12, 24\}$. The base setting is $d = 12$, $\sigma = 0$, $\alpha = 1$.
+- **Training.** 2000 steps, batch of 256 pairs.
+- **Tuning.** Every arm gets three levels of $\lambda$ (×1/5, ×1, ×5 around a pilot value), or three EMA decay rates. The level with the highest content $R^2$ on two tuning seeds wins. Leakage never enters the choice.
+- **Evaluation.** 5 fresh seeds per configuration, 95% bootstrap intervals over seeds.
+- **Size.** {{< meta n.n_heldout_runs >}} held-out runs, {{< meta n.n_total_runs >}} runs in total including tuning.
+
+## Regulariser strength
+
+The first hypothesis was about the target law. A regulariser that pushes toward an isotropic Gaussian must spread variance over all $d$ dimensions; with $d > k$, the spare dimensions have nothing to hold but nuisance. So Gaussian-target arms should leak more than VICReg and EMA.
+
+At the tuned $\lambda$ and $d = 12$, the opposite holds. Linear leakage, mean [95% interval]:
+
+- VICReg: {{< meta n.shapes_vicreg_leak_r2_ci >}}
+- SIGReg: {{< meta n.shapes_sigreg_leak_r2_ci >}}
+- EMA: {{< meta n.shapes_ema_leak_r2_ci >}}
+- sliced KSD: {{< meta n.shapes_sksd_leak_r2_ci >}}
+- MMD: {{< meta n.shapes_mmd_leak_r2_ci >}}
+- KSD: {{< meta n.shapes_ksd_leak_r2_ci >}}
+
+At $d = 12$ and $d = 24$, {{< meta n.h1_vicreg_neg >}} of {{< meta n.h1_vicreg_tot >}} Gaussian-arm minus VICReg contrasts are negative with intervals that exclude zero.
+
+The ranking does not survive a change of $\lambda$. Rerunning every regulariser at all three of its levels on the held-out seeds gives leakage at the highest $\lambda$ minus leakage at the lowest:
+
+- VICReg: {{< meta n.c_h1_lam_vicreg_l_25_l_1_leak_r2 >}}
+- SIGReg: {{< meta n.c_h1_lam_sigreg_l_0_25_l_0_01_leak_r2 >}}
+- sliced KSD: {{< meta n.c_h1_lam_sliced_ksd_l_25_l_1_leak_r2 >}}
+- KSD: {{< meta n.c_h1_lam_ksd_l_5_l_0_2_leak_r2 >}}
+- MMD: {{< meta n.c_h1_lam_mmd_l_50_l_2_leak_r2 >}}
+- oracle: {{< meta n.c_h1_lam_oracle_l_0_5_l_0_02_leak_r2 >}}
+
+What the six contrasts show:
+
+- All six are positive, with intervals that exclude zero.
+- VICReg names no target distribution and still follows the pattern.
+- At five times its tuned $\lambda$, KSD leaks more than VICReg at VICReg's least-leaky level ({{< meta n.c_h1_lam_ksd_l_1_vicreg_l_1_its_least_leaky_level_leak_r2 >}}).
+- Pushing harder costs content: KSD's content $R^2$ falls from {{< meta n.lam_ksd_l02_content_r2 >}} at its tuned $\lambda$ to {{< meta n.lam_ksd_l5_content_r2 >}} at 25 times it.
+
+More distributional pressure buys more leakage, whatever the target. Tuning for content picked low-pressure levels for the KSD family, and that choice, not the Gaussian target, decides the comparison.
+
+### λ explorer
+
+The chart shows linear leakage and linear content $R^2$ on the held-out seeds against $\lambda$ divided by the tuned $\lambda$ (log scale; dotted line = tuned). Bars are 95% intervals.
+
+- Compare each arm's lowest and highest $\lambda$: leakage is higher at the highest for every arm.
+- Content at the highest $\lambda$ is lower than at the tuned $\lambda$ for every arm.
+- KSD and sliced KSD were tuned at the bottom of their grids, so their curves start at 1.
+
+```{ojs}
+//| label: lam-inputs
+lamArmNames = ["VICReg", "SIGReg", "sliced KSD", "KSD", "MMD", "oracle"]
+viewof lamArms = Inputs.checkbox(lamArmNames, {label: "Regulariser", value: lamArmNames})
+```
+
+```{ojs}
+//| label: lam-plot
+{
+  if (lamArms.length === 0) return html`<p><em>Select at least one regulariser.</em></p>`;
+  const mets = [
+    {key: "leak_r2", label: "linear leakage R² (lower is better)"},
+    {key: "content_r2", label: "linear content R² (higher is better)"}
+  ];
+  const long = lamSens
+    .filter(r => lamArms.includes(r.arm_name))
+    .flatMap(r => mets.map(m => ({
+      arm: r.arm_name,
+      metric: m.label,
+      lam: r.lam,
+      x: r.lam_rel * Math.pow(2, (lamArmNames.indexOf(r.arm_name) - 2.5) / 25),
+      v: r[m.key], lo: r[m.key + "_lo"], hi: r[m.key + "_hi"]
+    })));
+  const fmt = d3.format(".3f");
+  return Plot.plot({
+    width,
+    height: 320,
+    marginBottom: 40,
+    fx: {domain: mets.map(m => m.label), label: null},
+    x: {type: "log", label: "λ ÷ tuned λ", ticks: [1/5, 1, 5, 25],
+        tickFormat: t => t < 1 ? "1/" + Math.round(1 / t) : String(t)},
+    y: {label: "R²", grid: true, domain: [Math.min(0, d3.min(long, d => d.lo)), 1]},
+    color: lamColor,
+    marks: [
+      Plot.ruleX([1], {stroke: "#999", strokeDasharray: "2,3"}),
+      Plot.line(long, {fx: "metric", x: "x", y: "v", z: "arm", stroke: "arm", sort: "x"}),
+      Plot.ruleX(long, {fx: "metric", x: "x", y1: "lo", y2: "hi", stroke: "arm"}),
+      Plot.dot(long, {fx: "metric", x: "x", y: "v", fill: "arm", r: 3.5,
+        title: d => `${d.arm}, λ = ${d.lam}\n${d.metric}: ${fmt(d.v)} [${fmt(d.lo)}, ${fmt(d.hi)}]`,
+        tip: true})
+    ]
+  });
+}
+```
+
+## Embedding width and noise
+
+There are two obvious ways to squeeze an embedding so it cannot carry everything:
+
+- **Width**: give it fewer dimensions, a lower $d$.
+- **Information bottleneck**: add Gaussian noise of size $\sigma$ to the embedding before the predictor sees it, which limits how much detail gets through. The noise is scaled to the batch spread of the embedding, so the encoder cannot escape it by growing its outputs. Probes read the clean embedding.
+
+The hypothesis was that noise removes nuisance where width does not. The data say the reverse. Contrasts at $\alpha = 1$, mean [95% interval]:
+
+| Arm | Leakage, $d$ 6 − 24 | Content, $d$ 6 − 24 | Leakage, $\sigma$ 1 − 0 ($d$ 12) | Content, $\sigma$ 1 − 0 ($d$ 12) |
+|---|---|---|---|---|
+| EMA | {{< meta n.c_h2_ema_s_0_d_6_d_24_leak_r2 >}} | {{< meta n.c_h2_ema_s_0_d_6_d_24_content_r2 >}} | {{< meta n.c_h2_ema_d_12_s_1_0_s_0_leak_r2 >}} | {{< meta n.c_h2_ema_d_12_s_1_0_s_0_content_r2 >}} |
+| VICReg | {{< meta n.c_h2_vicreg_s_0_d_6_d_24_leak_r2 >}} | {{< meta n.c_h2_vicreg_s_0_d_6_d_24_content_r2 >}} | {{< meta n.c_h2_vicreg_d_12_s_1_0_s_0_leak_r2 >}} | {{< meta n.c_h2_vicreg_d_12_s_1_0_s_0_content_r2 >}} |
+| SIGReg | {{< meta n.c_h2_sigreg_s_0_d_6_d_24_leak_r2 >}} | {{< meta n.c_h2_sigreg_s_0_d_6_d_24_content_r2 >}} | {{< meta n.c_h2_sigreg_d_12_s_1_0_s_0_leak_r2 >}} | {{< meta n.c_h2_sigreg_d_12_s_1_0_s_0_content_r2 >}} |
+| sliced KSD | {{< meta n.c_h2_sliced_ksd_s_0_d_6_d_24_leak_r2 >}} | {{< meta n.c_h2_sliced_ksd_s_0_d_6_d_24_content_r2 >}} | {{< meta n.c_h2_sliced_ksd_d_12_s_1_0_s_0_leak_r2 >}} | {{< meta n.c_h2_sliced_ksd_d_12_s_1_0_s_0_content_r2 >}} |
+| KSD | {{< meta n.c_h2_ksd_s_0_d_6_d_24_leak_r2 >}} | {{< meta n.c_h2_ksd_s_0_d_6_d_24_content_r2 >}} | {{< meta n.c_h2_ksd_d_12_s_1_0_s_0_leak_r2 >}} | {{< meta n.c_h2_ksd_d_12_s_1_0_s_0_content_r2 >}} |
+| MMD | {{< meta n.c_h2_mmd_s_0_d_6_d_24_leak_r2 >}} | {{< meta n.c_h2_mmd_s_0_d_6_d_24_content_r2 >}} | {{< meta n.c_h2_mmd_d_12_s_1_0_s_0_leak_r2 >}} | {{< meta n.c_h2_mmd_d_12_s_1_0_s_0_content_r2 >}} |
+
+: Width and noise contrasts on 3DShapes. Negative leakage is good; negative content is bad. {#tbl-width-noise}
+
+- Narrowing $d$ from 24 to 6 lowers linear leakage for all six arms.
+- Narrowing $d$ also lowers content $R^2$ for all six. Width is a trade, not a free filter.
+- Raising $\sigma$ from 0 to 1 lowers content for all six, and raises leakage for all except VICReg, whose change is not distinguishable from zero.
+- EMA's kNN leakage does fall with noise ({{< meta n.c_h2_ema_d_12_s_1_0_s_0_leak_knn_r2 >}}), but its content falls with it. Its embedding is degrading, not filtering.
+
+Shrinking spare dimensions is not the same as removing them. The oracle arm squeezes its $d - k$ spare dimensions toward zero, yet leaks {{< meta n.shapes_oracle_leak_r2 >}} at $d = 12$ and {{< meta n.shapes_oracle_d24_leak_r2 >}} at $d = 24$. The probe standardises every dimension first, so a small dimension reads as clearly as a large one.
+
+![Linear leakage (first two panels) and linear content $R^2$ (last two panels) against noise $\sigma$, at $d$ = 12 and $d$ = 24. Bars are 95% intervals over 5 seeds.](figures/fig4_h2_sigma.svg){#fig-sigma}
+
+### Configuration explorer
+
+The chart shows linear leakage and content $R^2$ (mean, 95% interval over 5 seeds) at the tuned $\lambda$. The study ran three slices through the base setting, not a full grid:
+
+- $d \in \{3, 6, 12, 24\}$ at $\sigma = 0$, $\alpha = 1$, all eight arms;
+- $\sigma \in \{0, 0.5, 1\}$ at $d \in \{12, 24\}$, $\alpha = 1$, six arms (no oracle, no "none");
+- $\alpha \in \{0, 0.5, 1\}$ at $d = 12$, $\sigma = 0$, the same six arms.
+
+Other combinations show "not run". Nothing is interpolated.
+
+Things to try:
+
+- Set $\sigma = 0$, $\alpha = 1$ and compare $d = 3$ with $d = 24$: linear leakage is higher at $d = 24$ for every arm except the collapsed "none" baseline.
+- Set $\alpha = 1$ and $d = 12$ or $d = 24$, then compare $\sigma = 0$ with $\sigma = 1$: leakage is higher at $\sigma = 1$ for every arm except VICReg, and content is lower for every arm.
+- Set $d = 12$, $\sigma = 0$ and compare $\alpha = 0$ with $\alpha = 1$: leakage is lower at $\alpha = 1$ for every arm. When the nuisance never changes between views, nothing pushes the encoder to drop it.
+- Turn on kNN leakage at the base setting: KSD, sliced KSD and MMD hold nuisance a linear probe cannot read.
+
+```{ojs}
+//| label: explorer-data
+summary = FileAttachment("data/summary.csv").csv({typed: true})
+lamSens = FileAttachment("data/lam_sens.csv").csv({typed: true})
+armOrder = ["VICReg", "SIGReg", "sliced KSD", "KSD", "MMD", "EMA", "oracle", "none"]
+// same colours as the paper's figures
+armRange = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#000000", "#a6761d", "#999999"]
+armColor = ({domain: armOrder, range: armRange, legend: false})
+lamColor = ({domain: lamArmNames, range: lamArmNames.map(a => armRange[armOrder.indexOf(a)]), legend: true})
+```
+
+```{ojs}
+//| label: explorer-inputs
+viewof dSel = Inputs.radio([3, 6, 12, 24], {label: "Embedding dimension d", value: 12})
+viewof sigmaSel = Inputs.radio([0, 0.5, 1], {label: "Noise σ", value: 0})
+viewof alphaSel = Inputs.radio([0, 0.5, 1], {label: "Nuisance strength α", value: 1})
+viewof armSel = Inputs.checkbox(armOrder, {label: "Arms", value: armOrder.filter(a => a !== "none")})
+viewof showKnn = Inputs.toggle({label: "Add kNN leakage", value: false})
+```
+
+```{ojs}
+//| label: explorer-cell
+cell = summary.filter(r => r.tier === "shapes" && r.law === "uniform" && r.prior === "gaussian"
+  && r.d === dSel && r.sigma === sigmaSel && r.alpha === alphaSel)
+cellRows = armOrder.filter(a => armSel.includes(a))
+  .map(a => cell.find(r => r.arm_name === a))
+  .filter(r => r !== undefined)
+notRun = armOrder.filter(a => armSel.includes(a) && !cell.some(r => r.arm_name === a))
+```
+
+```{ojs}
+//| label: explorer-plot
+{
+  const where = `d = ${dSel}, σ = ${sigmaSel}, α = ${alphaSel}`;
+  if (cell.length === 0) {
+    return html`<div style="border:1px solid #ccc;padding:0.8em;border-radius:4px">
+      <strong>Not run.</strong> No arm was trained at ${where}.
+      Change one setting back toward the base (d = 12, σ = 0, α = 1).</div>`;
+  }
+  const notRunNote = notRun.length
+    ? html`<p><em>Not run at ${where}:</em> ${notRun.join(", ")}.</p>` : html`<span></span>`;
+  if (cellRows.length === 0) return notRunNote;
+  const mets = [
+    {key: "leak_r2", label: "linear leakage R² (lower is better)"},
+    {key: "content_r2", label: "linear content R² (higher is better)"},
+    ...(showKnn ? [{key: "leak_knn_r2", label: "kNN leakage R² (lower is better)"}] : [])
+  ];
+  const long = cellRows.flatMap(r => mets.map(m => ({
+    arm: r.arm_name, metric: m.label, v: r[m.key], lo: r[m.key + "_lo"], hi: r[m.key + "_hi"]
+  })));
+  const fmt = d3.format(".3f");
+  const plot = Plot.plot({
+    width,
+    height: 60 + 30 * cellRows.length,
+    marginLeft: 80,
+    fx: {domain: mets.map(m => m.label), label: null},
+    y: {domain: cellRows.map(r => r.arm_name), label: null},
+    x: {domain: [Math.min(0, d3.min(long, d => d.lo)), 1], label: "R²", grid: true},
+    color: armColor,
+    marks: [
+      Plot.ruleX([0], {stroke: "#bbb"}),
+      Plot.ruleY(long, {fx: "metric", y: "arm", x1: "lo", x2: "hi", stroke: "arm", strokeWidth: 2}),
+      Plot.dot(long, {fx: "metric", y: "arm", x: "v", fill: "arm", r: 4,
+        title: d => `${d.arm}\n${d.metric}: ${fmt(d.v)} [${fmt(d.lo)}, ${fmt(d.hi)}]`, tip: true})
+    ]
+  });
+  return html`${plot}${notRunNote}`;
+}
+```
+
+```{ojs}
+//| label: explorer-table
+{
+  if (cellRows.length === 0) return html`<span></span>`;
+  const fmt = d3.format(".3f");
+  const ci = (r, m) => `${fmt(r[m])} [${fmt(r[m + "_lo"])}, ${fmt(r[m + "_hi"])}]`;
+  return Inputs.table(cellRows.map(r => ({
+    "Arm": r.arm_name,
+    "λ (EMA: decay τ)": r.arm === "ema" ? r.ema_tau : r.lam,
+    "Linear leakage": ci(r, "leak_r2"),
+    "Linear content": ci(r, "content_r2"),
+    ...(showKnn ? {"kNN leakage": ci(r, "leak_knn_r2")} : {}),
+    "Collapsed seeds": `${Math.round(r.collapsed_frac * r.n_seeds)} of ${r.n_seeds}`
+  })), {layout: "auto"});
+}
+```
+
+## Other results
+
+- **Matched priors** (identifiability = how well a rotation and scaling of the embedding recovers the content factors). When the content factors follow a non-Gaussian law, KSD toward a matched prior does not beat KSD toward $N(0, I)$.
+  - Uniform law: matched {{< meta n.shapes_ksd_prioruniform_ident_orth_r2_ci >}} vs Gaussian target {{< meta n.shapes_ksd_ident_orth_r2_ci >}}.
+  - Laplace law: matched {{< meta n.shapes_ksd_lawlaplace_priorlaplace_ident_orth_r2_ci >}} vs Gaussian target {{< meta n.shapes_ksd_lawlaplace_ident_orth_r2_ci >}}.
+- **EMA under nuisance.** EMA's leakage responds to $\alpha$ like the regularisers' (difference from KSD's response: {{< meta n.c_h4_interaction_ema_a1_a0_ksd_a1_a0_leak_r2 >}}). Its geometry differs: effective rank (roughly, how many dimensions the embedding uses) is {{< meta n.shapes_ema_eff_rank >}} for EMA against {{< meta n.shapes_sigreg_eff_rank >}} for SIGReg.
+- **Temporal clips.** EMA alone leaks {{< meta n.temporal_ema_leak_r2_ci >}}, sliced KSD alone {{< meta n.temporal_sksd_leak_r2_ci >}}. Adding sliced KSD to EMA raises leakage by {{< meta n.c_h5_emapsksd_ema_leak_r2 >}}.
+- **Autoencoders.** β-VAE, KSD-AE and MMD-AE leak {{< meta n.vae_betavae_leak_r2 >}}, {{< meta n.vae_ksd_leak_r2 >}} and {{< meta n.vae_mmd_leak_r2 >}}. {{< meta n.h6_pos_leak_r2 >}} of {{< meta n.h6_tot_leak_r2 >}} autoencoder minus JEPA contrasts are positive; the smallest is β-VAE − VICReg, {{< meta n.c_h6_betavae_ae_jepa_vicreg_leak_r2 >}}.
+- **CIFAR-10.** Augmentation leakage is small for every arm, from {{< meta n.cifar_ksd_leak_r2 >}} (KSD) to {{< meta n.cifar_ema_leak_r2 >}} (EMA). KSD has the best linear class accuracy, {{< meta n.cifar_ksd_class_acc_ci >}}.
+
+![Left: linear and kNN leakage in the temporal tier. Right: leakage of the seven regularised JEPA arms and three autoencoders on 3DShapes at $d$ = 12.](figures/fig7_h5_h6.svg){#fig-temporal-ae}
+
+## Constraints
+
+- **One small rendered world.** A small convolutional encoder, 2000 steps, rendered scenes downsampled to 32×32. Large encoders on photographs may behave differently; the CIFAR-10 tier is a single slice.
+- **λ tuned once.** Levels were chosen at the base setting and reused for the $d$, $\sigma$ and $\alpha$ slices, so part of the width and noise effects may come from a $\lambda$ that is no longer the best there. Several arms, KSD and sliced KSD included, were tuned at the lowest $\lambda$ of their grids.
+- **Linear leakage is the headline.** Low linear leakage is not absence of nuisance: KSD's kNN leakage at the base setting is {{< meta n.shapes_ksd_leak_knn_r2_ci >}} against linear {{< meta n.shapes_ksd_leak_r2 >}}, and SIGReg's kNN leakage exceeds EMA's ({{< meta n.c_h1_d_12_sigreg_ema_leak_knn_r2 >}}).
+- **One kind of noise.** $\sigma$ is noise on the predictor input. Other information bottlenecks were not tested.
+- **Collapse at $d = 3$.** EMA and MMD collapsed in some seeds at $d = 3$; the explorer table lists the count.
+- **Five seeds.** Intervals are percentile bootstraps over 5 unpaired seeds. Read intervals that just touch zero as weak.
+
+Pressure. Buys. Leakage. Width. Filters. Nuisance. Noise. Hurts. Targets. Matter. Less.
+
+## References
+
+- Assran, M. et al. (2023). Self-Supervised Learning From Images With a Joint-Embedding Predictive Architecture. CVPR, pp. 15619–15629.
+- Balestriero, R. & LeCun, Y. (2025). LeJEPA: Provable and Scalable Self-Supervised Learning Without the Heuristics. <https://arxiv.org/abs/2511.08544>
+- Bardes, A., Ponce, J. & LeCun, Y. (2022). VICReg: Variance-Invariance-Covariance Regularization for Self-Supervised Learning. ICLR. <https://arxiv.org/abs/2105.04906>
+- Burgess, C. & Kim, H. (2018). 3D Shapes Dataset. DeepMind. <https://github.com/deepmind/3dshapes-dataset/>
+- Gong, W., Li, Y. & Hernández-Lobato, J. M. (2021). Sliced Kernelized Stein Discrepancy. ICLR. <https://arxiv.org/abs/2006.16531>
+- Gorham, J. & Mackey, L. (2017). Measuring Sample Quality with Kernels. ICML. <https://proceedings.mlr.press/v70/gorham17a.html>
+- Higgins, I. et al. (2017). β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework. ICLR. <https://openreview.net/pdf?id=Sy2fzU9gl>
+- Krizhevsky, A. (2009). Learning Multiple Layers of Features from Tiny Images. Technical report. <https://www.cs.toronto.edu/~kriz/cifar.html>
+- Liu, Q., Lee, J. & Jordan, M. (2016). A Kernelized Stein Discrepancy for Goodness-of-fit Tests. ICML. <https://proceedings.mlr.press/v48/liub16.html>

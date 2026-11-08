@@ -165,6 +165,12 @@ def heldout():
     return _dedup(cfgs)
 
 
+def heldout_h5():
+    """P3 reproduction check: the H5 (temporal) block alone, 5 held-out seeds (same configs as heldout())."""
+    blk = dict(heldout_blocks())["H5"]
+    return _dedup([{**c, "seed": sd} for c in blk for sd in HELD_SEEDS])
+
+
 def slice_membership():
     """hash-without-seed -> list of slices the config belongs to (used by the analysis)."""
     out = {}

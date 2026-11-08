@@ -29,7 +29,7 @@ def collect(cfgs, out):
     rows = []
     for c in cfgs:
         rc = resolve(c)
-        p = os.path.join("runs", cfg_hash(rc), "result.json")
+        p = os.path.join(os.environ.get("STEIN_RUNS", "runs"), cfg_hash(rc), "result.json")
         if not os.path.exists(p):
             continue
         r = json.load(open(p))
@@ -60,7 +60,7 @@ def main(argv=None):
         cfgs = getattr(grids, a.grid)()
     if a.limit:
         cfgs = cfgs[: a.limit]
-    todo = [c for c in cfgs if not os.path.exists(os.path.join("runs", cfg_hash(resolve(c)), "result.json"))]
+    todo = [c for c in cfgs if not os.path.exists(os.path.join(os.environ.get("STEIN_RUNS", "runs"), cfg_hash(resolve(c)), "result.json"))]
     n_all, n_todo = len(cfgs), len(todo)
     print(f"PROGRESS {n_all - n_todo}/{n_all} runs done at start; {n_todo} to run with {a.workers} workers", flush=True)
     t0, done, fails, last = time.time(), 0, 0, time.time()

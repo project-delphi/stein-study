@@ -13,3 +13,9 @@ __pycache__/
 *.npy
 *.npz
 .DS_Store
+
+/.quarto/
+**/*.quarto_ipynb
+
+# P3: the blog reads its precomputed inputs from blog/data/
+!blog/data/

@@ -2,7 +2,8 @@
 
 Only notes whose first line does not contain UNVERIFIED are included. The entry key is
 renamed to the note's citekey; field values are copied from the note (fetched records),
-with only mechanical normalisation: Unicode en dash in page ranges -> '--', and the
+with only mechanical normalisation: Unicode en dash in page ranges -> '--', bare month
+macros braced (P3), and the
 Crossref-style one-line entries reflowed. Run: .venv/bin/python notes/_work/build_bib.py
 """
 import glob
@@ -30,6 +31,8 @@ for f in sorted(glob.glob("notes/*.md")):
     entry = entries[0].strip()
     entry = re.sub(r"^@(\w+)\{[^,]*,", lambda mm: f"@{mm.group(1).lower()}{{{key},", entry, count=1)
     entry = entry.replace("–", "--")
+    # P3: brace bare month macros (e.g. month=July), which typst's BibLaTeX parser rejects
+    entry = re.sub(r"(month\s*=\s*)([A-Za-z]+)(\s*,)", r"\1{\2}\3", entry)
     out.append(entry)
 
 # Manual, documented additions that are not in the fetched records are NOT made here.

@@ -222,7 +222,8 @@ def evaluate(c, enc, data, hist):
     return out
 
 
-def run(cfg, outdir="runs", force=False, log_every=0):
+def run(cfg, outdir=None, force=False, log_every=0):
+    outdir = outdir or os.environ.get("STEIN_RUNS", "runs")   # STEIN_RUNS: alternative run cache (REPRODUCE.md)
     c = resolve(cfg)
     h = cfg_hash(c)
     rd = os.path.join(outdir, h)
