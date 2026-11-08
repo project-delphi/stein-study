@@ -17,7 +17,7 @@ abstract: |
   decides, and more weight means more leakage for every regulariser. Shrinking $d$ towards $k$ reduces
   leakage; injected noise never does. A KSD prior matched to a non-Gaussian content law does not help, and
   plain KSD towards $\mathcal N(0, I)$ identifies content best at every law. In the temporal tier, EMA alone leaks more than
-  sliced KSD alone. Autoencoders leak more than every JEPA arm, the one hypothesis
+  sliced KSD alone. At the tuned settings, autoencoders leak more than every JEPA arm, the one hypothesis
   that held.
 format:
   typst:
@@ -447,7 +447,7 @@ differences of differences, EMA's response is not different from KSD's
 VICReg's ({{< meta n.c_h4_interaction_ema_a1_a0_vicreg_a1_a0_leak_r2 >}}), SIGReg's
 ({{< meta n.c_h4_interaction_ema_a1_a0_sigreg_a1_a0_leak_r2 >}}) and MMD's
 ({{< meta n.c_h4_interaction_ema_a1_a0_mmd_a1_a0_leak_r2 >}}). The size of EMA's response differs from
-three of the five regularisers but lies inside their range, and its direction is shared by all. We read
+three of the five regularisers but lies inside their range, and no arm responds in the opposite direction (VICReg's interval spans zero). We read
 this as no *qualitative* difference.
 
 At α = 0.5, EMA leaks {{< meta n.shapes_ema_a05_leak_r2 >}}, close to VICReg
@@ -581,8 +581,8 @@ learned rate; and λ tuned at every point of the $d$ and σ slices.
 
 **What the AI did.** AI agents carried out this study: they designed the experiments within the task
 specification, wrote the code, ran the experiments, analysed the results and drafted this paper. The agents
-were Claude models run through Claude Code (Opus 5.5 for the main phases; Sonnet 5.5 and Haiku 5.5 for
-sub-tasks). Sub-agents verified the 35 related-work papers against arXiv or the venue and wrote the BibTeX,
+were Claude models run through Claude Code (Opus 5.5 for the main phases, Sonnet 5.5 for the
+literature sub-agents; Haiku 5.5 ran only the runner's connectivity check). Sub-agents verified the 35 related-work papers against arXiv or the venue and wrote the BibTeX,
 and a fresh sub-agent reviewed the finished work. The study ran unattended in five phases; the agent approved
 each gate itself, with no human review in between. Claude also made the final edit of this text.
 
