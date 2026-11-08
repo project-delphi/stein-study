@@ -286,6 +286,37 @@ def run(held, tune):
                                           sel(D, tier="vae", arm="ksd", law="laplace", prior="gaussian")[m])))
     o.table(rows, ["contrast", "metric", "estimate [95% CI]", "sign"])
 
+    # ---------------------------------------------------------------- λ sensitivity (held-out seeds)
+    if os.path.exists("results/lam_sens.parquet"):
+        L = load("results/lam_sens.parquet")
+        SL = summarise(L)
+        SL.to_parquet("results/lam_sens_summary.parquet", index=False)
+        o.h("H1 robustness: λ sensitivity at the base setting (d = 12, held-out seeds 1–5)")
+        o.p("All three tuning levels of each regulariser, on held-out seeds (`python -m stein.sweep lam_sens`). "
+            "The selected level is the H1 run.\n")
+        rows = []
+        for _, g in SL.sort_values(["arm", "lam"]).iterrows():
+            rows.append([NAMES[g.arm], f"{g.lam:g}"] + [fmt(g[m], g[m + "_lo"], g[m + "_hi"])
+                        for m in ["content_r2", "leak_r2", "leak_knn_r2", "ident_orth_r2"]] + [g.n_seeds])
+        o.table(rows, ["arm", "λ", "content R²", "leak R²", "kNN leak R²", "ident R²", "n"])
+        rows = []
+        for a in ["vicreg"] + GT + ["oracle"]:
+            lams = sorted(sel(L, arm=a)["lam"].unique())
+            for m in ["leak_r2", "leak_knn_r2"]:
+                rows.append(o.contrast("H1-lam", f"{NAMES[a]}: λ={lams[-1]:g} − λ={lams[0]:g}", m,
+                                       *boot_diff(sel(L, arm=a, lam=lams[-1])[m], sel(L, arm=a, lam=lams[0])[m])))
+        vic = sel(L, arm="vicreg")
+        vic_min = min(vic["lam"].unique(), key=lambda l: sel(vic, lam=l)["leak_r2"].mean())
+        E = shapes_base(D, arm="ema")
+        for a in GT:
+            for l in sorted(sel(L, arm=a)["lam"].unique()):
+                A = sel(L, arm=a, lam=l)
+                for m in ["leak_r2", "leak_knn_r2"]:
+                    rows.append(o.contrast("H1-lam", f"{NAMES[a]} λ={l:g} − VICReg λ={vic_min:g} (its least-leaky level)", m,
+                                           *boot_diff(A[m], sel(vic, lam=vic_min)[m])))
+                    rows.append(o.contrast("H1-lam", f"{NAMES[a]} λ={l:g} − EMA", m, *boot_diff(A[m], E[m])))
+        o.table(rows, ["contrast", "metric", "estimate [95% CI]", "sign"])
+
     # ---------------------------------------------------------------- stability / collapse
     o.h("Collapse and loss stability (all held-out configs)")
     bad = S[(S.collapsed_frac > 0) | (S.loss_cv_last20 > 0.5)]

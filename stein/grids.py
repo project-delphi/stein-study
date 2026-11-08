@@ -178,3 +178,15 @@ def slice_membership():
 def heldout_tiny():
     """Smoke test of handoff 2: first config of each block, 1 seed, 50 steps (never reported)."""
     return [{**blk[0], "seed": HELD_SEEDS[0], "steps": 50} for _, blk in heldout_blocks()]
+
+
+def lam_sens():
+    """Robustness slice (P2, foreground): every tuned level of the 3DShapes base arms on the
+    held-out seeds, so the lambda-leakage trend seen in tuning is checked on held-out seeds.
+    The selected level is shared with H1 (deduplicated by hash)."""
+    cfgs = []
+    for a in ["vicreg", "sigreg", "sksd", "ksd", "mmd", "oracle"]:
+        for lv in _levels(a):
+            for sd in HELD_SEEDS:
+                cfgs.append(_cfg(arm=a, seed=sd, **lv))
+    return _dedup(cfgs)
