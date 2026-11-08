@@ -77,7 +77,7 @@ the browser (Observable JS). To view the blog with working charts, serve the `bl
 (for example `quarto preview blog/index.qmd`), because browsers block `FileAttachment` reads from
 `file://` URLs.
 
-## 5. Reproduce one figure from scratch (about 16 minutes)
+## 5. Reproduce one figure from scratch (about 15–18 minutes)
 
 This reproduces the temporal-tier panel of Figure 7 (left) from freshly trained models. It retrains
 the 25 held-out runs of hypothesis H5 (5 arms × 5 seeds) in an empty run cache, so nothing is reused
@@ -90,11 +90,18 @@ STEIN_RUNS=state/runs_repro OMP_NUM_THREADS=1 .venv/bin/python -W ignore -m stei
 .venv/bin/python -W ignore tools/repro_h5.py results/repro/h5.parquet
 ```
 
-Outputs:
+Outputs, written next to the `--out` parquet:
 - `results/repro/fig7_left_repro.pdf`: the reported and reproduced panels side by side;
 - `results/repro/h5_compare.md`: per-arm means with 95% bootstrap CIs, reported against reproduced.
 
-On the study machine (P3, 2026-11-08) this took 923 s. The log, `logs/repro_h5.log`, is local only,
+To keep the committed `results/repro/` files untouched, point both the run cache and the output
+elsewhere, for example `STEIN_RUNS=state/review/runs_repro ... --out state/review/h5.parquet`, then run
+`tools/repro_h5.py state/review/h5.parquet`. The "reported" column is read from
+`results/summary.parquet`, so it matches the paper exactly. The reproduced CIs come from a fresh
+bootstrap and can differ in the third decimal even when the runs are identical, so compare the means.
+
+On the study machine this took 923 s in P3, and about 18 minutes in the independent P4 review
+(43 s/run effective over 25 runs, from its sweep log `state/review/repro_sweep.log`, which is not committed). The P3 log, `logs/repro_h5.log`, is local only,
 because `logs/` is not committed. All 25 runs reproduced
 every metric bitwise, and all 15 reproduced arm × metric means equal the reported ones. To regenerate
 the paper's own Figure 7 from these runs, rerun `stein.analyze`, `stein.report` and `quarto render`;

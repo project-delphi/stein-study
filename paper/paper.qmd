@@ -15,8 +15,8 @@ abstract: |
   (no regulariser, VICReg, SIGReg, sliced and full KSD, MMD, EMA, and a rank-$k$ oracle target) with
   matched tuning and {{< meta n.n_seeds >}} held-out seeds, plus a temporal tier, a CIFAR-10 tier and an
   autoencoder tier ({{< meta n.n_total_runs >}} training runs). All five hypotheses about the JEPA
-  arms are refuted, and the autoencoder hypothesis is confirmed. Isotropic-Gaussian regularisers do not leak more nuisance than VICReg at content-tuned
-  strength; leakage is instead governed by the regularisation weight, and rises with it for every
+  arms are refuted, and the autoencoder hypothesis is confirmed. Isotropic-Gaussian regularisers do not leak more nuisance than VICReg when each is tuned
+  for content; leakage is instead governed by the regularisation weight, and rises with it for every
   regulariser. Shrinking $d$ towards $k$ reduces leakage for every arm, while injected noise never
   does. KSD with a prior matched to a non-Gaussian content law does not improve identifiability; full
   KSD towards $\mathcal N(0, I)$ has the best identifiability at every content law. In the temporal tier, EMA
@@ -62,8 +62,9 @@ discrepancies, MMD and kernelised Stein discrepancies (KSD), sliced and unsliced
 within their model class, linear identifiability of JEPA latents holds only for Gaussian latents
 [@klindt2026when].
 
-These analyses assume that the two views differ only by noise on the shared latent. Real view pairs also
-differ in *nuisance*: lighting, background, pose, augmentation parameters. A distributional regulariser
+The identifiability analysis assumes that the two views differ only by noise on the shared latent
+[@klindt2026when], and none of these JEPA works has ground-truth nuisance in its views. Real view
+pairs also differ in *nuisance*: lighting, background, pose, augmentation parameters. A distributional regulariser
 asks the encoder to fill $d$ dimensions with a prescribed spread. If the content occupies fewer than $d$
 dimensions, something must fill the rest, and nuisance is available. Whether this happens, and whether
 the embedding dimension $d$ or an information bottleneck (noise injected into $z$) controls it, has not
@@ -136,7 +137,7 @@ regularisers, for matched targets as an idea, or for the KSD autoencoder.
 #show table: set text(size: 6.8pt)
 ```
 
-| work | regulariser | target | ground-truth nuisance | $d$ vs $k$ | injected noise | identifiability | objective | data |
+| work | regulariser | target | ground-truth nuisance | $d$ vs $k$ | info. bottleneck | identifiability | objective | data |
 |:--|:--|:--|:--|:--|:--|:--|:--|:--|
 | LeJEPA | SIGReg (sliced) | $\mathcal N(0,I)$ | — | — | — | informal | JEPA | natural |
 | KerJEPA | KSD, MMD (sliced + full) | Gaussian, Laplace | — | — | — | — | JEPA (EMA) | natural |
@@ -145,7 +146,7 @@ regularisers, for matched targets as an idea, or for the KSD autoencoder.
 | Klindt et al. | SIGReg | $\mathcal N(0,I)$ | — (noise only) | open question | — | linear (Gaussian) | JEPA | synth. + rendered |
 | Arnez et al. | SIGReg | $\mathcal N(0,I)$ | — | — | theory only | assumed | temporal JEPA | none |
 | VICReg | var./cov. | moments | implicit | — | — | — | joint emb. | natural |
-| I-/V-JEPA, V-JEPA 2 | EMA + stop-grad | — | — | — | — | — | (temporal) JEPA | natural |
+| I-/V-JEPA, V-JEPA 2 | EMA + stop-grad | — | — | V-JEPA: implicit (narrow predictor) | — | — | (temporal) JEPA | natural |
 | von Kügelgen et al. | InfoNCE-type | — | yes (style) | $d = k$ | — | block | contrastive | synth. + rendered |
 | Federici et al. | MIB | — | yes | — | yes | — | multi-view IB | natural |
 | β-VAE, WAE, InfoVAE | KL, MMD | $\mathcal N(0,I)$ | — | WAE: discussed | yes (β) | metric (β-VAE) | autoencoder | mixed |
@@ -171,7 +172,7 @@ $[\cos h, \sin h, \text{scale}, \text{simplex}(\text{shape})]$ with $k = 6$ and 
 dimensions. A fixed random 10% of the factor grid is held out for probe evaluation and never used in
 training.
 
-A pair is built by drawing content once, drawing view 1's nuisance uniformly, and resampling each
+A pair is built by drawing content once, drawing the nuisance of view 1 uniformly, and resampling each
 nuisance factor of view 2 independently with probability $\alpha$ (@fig-views). At $\alpha = 0$ the two
 views are the same image; at $\alpha = 1$ their nuisance is independent. Both views receive pixel noise
 with standard deviation 0.02. The validation gates confirmed that content is identical across views at
@@ -330,14 +331,16 @@ $d \in \{12, 24\}$ are negative with intervals that exclude zero ({{< meta n.h1_
 MMD leak less at $d = 12$ and SIGReg is not different
 ({{< meta n.c_h1_d_12_sigreg_ema_leak_r2 >}}); at $d = 24$, SIGReg
 ({{< meta n.c_h1_d_24_sigreg_ema_leak_r2 >}}) and KSD ({{< meta n.c_h1_d_24_ksd_ema_leak_r2 >}}) are not
-different from EMA. The one result in H1's direction is nonlinear: SIGReg's kNN leakage exceeds EMA's at
+different from EMA. Among these tuned-level contrasts, the one result in the direction H1 predicts is nonlinear: SIGReg's kNN leakage exceeds EMA's at
 every $d$ (at $d = 12$: {{< meta n.c_h1_d_12_sigreg_ema_leak_knn_r2 >}}).
 
 ![H1: nuisance leakage and content against embedding dimension $d$ (base setting otherwise; tuned
 $\lambda$). Points are means over 5 held-out seeds with 95% bootstrap intervals; the dotted line marks
-$k = 6$. Leakage rises with $d$ for every arm.](figures/fig2_h1_dim.pdf){#fig-h1}
+$k = 6$. Every arm leaks more at $d = 24$ than at $d = 3$.](figures/fig2_h1_dim.pdf){#fig-h1}
 
-@fig-h1 shows that leakage grows with $d$ for every arm, not only the Gaussian ones. From $d = 3$ to
+@fig-h1 shows that every arm, not only the Gaussian ones, leaks more at $d = 24$ than at $d = 3$, though
+not monotonically: VICReg is flat from $d = 12$ to $d = 24$, and sliced KSD, KSD and MMD stay near zero up to
+$d = 12$ before rising. From $d = 3$ to
 $d = 24$, VICReg goes from {{< meta n.shapes_vicreg_d3_leak_r2 >}} to
 {{< meta n.shapes_vicreg_d24_leak_r2 >}}, SIGReg from {{< meta n.shapes_sigreg_d3_leak_r2 >}} to
 {{< meta n.shapes_sigreg_d24_leak_r2 >}}, KSD from {{< meta n.shapes_ksd_d3_leak_r2 >}} to
@@ -358,11 +361,20 @@ regulariser, VICReg included, the highest level leaks more than the lowest, with
 {{< meta n.c_h1_lam_vicreg_l_25_l_1_leak_r2 >}}. At five times its content-optimal level, each
 Gaussian-target arm leaks more than VICReg's least-leaky level ({{< meta n.lam_vicreg_l1_leak_r2_ci >}});
 for KSD at $\lambda = 1$ the gap is {{< meta n.c_h1_lam_ksd_l_1_vicreg_l_1_its_least_leaky_level_leak_r2 >}},
-and against EMA {{< meta n.c_h1_lam_ksd_l_1_ema_leak_r2 >}}. Because our selection rule maximises
-content $R^2$ and content $R^2$ falls with $\lambda$, it picks low-leakage levels. The verdict on H1 is
-therefore a statement about content-tuned regularisers; under stronger distributional pressure the
-Gaussian arms do leak more than VICReg and EMA. More pressure buys leakage for every regulariser, so the
-effect is not specific to isotropic-Gaussian targets.
+and against EMA {{< meta n.c_h1_lam_ksd_l_1_ema_leak_r2 >}}. The selection rule (highest content $R^2$
+on validation seeds) picked the lowest level for sliced KSD and KSD, whose held-out content falls with
+$\lambda$, and the middle level for the other four. Content is not monotone in $\lambda$ for VICReg
+({{< meta n.lam_vicreg_l1_content_r2 >}}, {{< meta n.lam_vicreg_l5_content_r2 >}},
+{{< meta n.lam_vicreg_l25_content_r2 >}}) or MMD ({{< meta n.lam_mmd_l2_content_r2 >}},
+{{< meta n.lam_mmd_l10_content_r2 >}}, {{< meta n.lam_mmd_l50_content_r2 >}}), and for VICReg the rule
+picked a high-leakage level. Against VICReg's least-leaky level, the *tuned* SIGReg leaks more
+({{< meta n.c_h1_lam_sigreg_l_0_05_vicreg_l_1_its_least_leaky_level_leak_r2 >}}), a result in the hypothesised
+direction, while tuned sliced KSD, KSD and MMD still leak less (e.g. KSD
+{{< meta n.c_h1_lam_ksd_l_0_2_vicreg_l_1_its_least_leaky_level_leak_r2 >}}). The "less than VICReg" part of
+the verdict therefore rests partly on VICReg's selected level. The verdict on H1 is a statement about
+content-tuned regularisers; under stronger distributional pressure the Gaussian arms do leak more than
+VICReg and EMA. More pressure buys leakage for every regulariser, so the effect is not specific to
+isotropic-Gaussian targets.
 
 ![λ sensitivity at the base setting on held-out seeds: leakage and content at each arm's three tuning
 levels, plotted against λ divided by the tuned λ. The grey band is EMA's 95% interval.
@@ -375,7 +387,8 @@ levels, plotted against λ divided by the tuned λ. The grey band is EMA's 95% i
 
 Narrowing $d$ reduces linear leakage for all six arms (σ = 0, $d = 6$ against $d = 24$, intervals excluding
 zero): for example EMA {{< meta n.c_h2_ema_s_0_d_6_d_24_leak_r2 >}}, KSD
-{{< meta n.c_h2_ksd_s_0_d_6_d_24_leak_r2 >}} and MMD {{< meta n.c_h2_mmd_s_0_d_6_d_24_leak_r2 >}}.
+{{< meta n.c_h2_ksd_s_0_d_6_d_24_leak_r2 >}} and MMD {{< meta n.c_h2_mmd_s_0_d_6_d_24_leak_r2 >}}; for
+VICReg the evidence is weak ({{< meta n.c_h2_vicreg_s_0_d_6_d_24_leak_r2 >}}).
 Injected noise never reduces linear leakage (@fig-sigma). At σ = 1 against σ = 0, leakage rises for EMA,
 SIGReg, sliced KSD, KSD and MMD at both $d$, for example KSD at $d = 12$
 {{< meta n.c_h2_ksd_d_12_s_1_0_s_0_leak_r2 >}} and MMD {{< meta n.c_h2_mmd_d_12_s_1_0_s_0_leak_r2 >}};
@@ -405,9 +418,15 @@ oracle, but so does Gaussian-target KSD: the advantage belongs to full KSD, not 
 Under the Laplace law, matched-Laplace KSD ({{< meta n.shapes_ksd_lawlaplace_priorlaplace_ident_orth_r2_ci >}})
 is far below Gaussian-target KSD ({{< meta n.shapes_ksd_lawlaplace_ident_orth_r2_ci >}}; difference
 {{< meta n.c_h3_law_laplace_ksd_matched_ksd_ident_orth_r2 >}}) and also below SIGReg
-({{< meta n.c_h3_law_laplace_ksd_matched_sigreg_ident_orth_r2 >}}). Matched sliced KSD is below every
+({{< meta n.c_h3_law_laplace_ksd_matched_sigreg_ident_orth_r2 >}}, weak). Matched sliced KSD is below every
 Gaussian-target arm at both laws (@fig-law, @tbl-h3). Full KSD towards $\mathcal N(0, I)$ has the best
-identifiability at every law, and its highest value is under the Laplace law.
+identifiability at every law, and its highest value is under the Laplace law; so do SIGReg and sliced KSD,
+while MMD and the oracle peak under the Gaussian law. This differs from Klindt et al., whose
+generalised-normal sweep of the latent law with LeJEPA has identifiability peaking at the Gaussian law
+[@klindt2026when]. The settings differ in ways we cannot separate: their latents are continuous with
+$d$ equal to the latent dimension and views differ only by transition noise, whereas here the law
+reweights two factors of a discrete grid, $d = 12 > k$, nuisance is present, and the probe images are
+drawn from each law, so scores at different laws are measured on different populations.
 
 ![H3: orthogonal identifiability by content law (d = 12). Filled markers: Gaussian targets; open
 markers: KSD and sliced KSD with a prior matched to the content law (at the Gaussian law the matched
@@ -439,11 +458,17 @@ SIGReg {{< meta n.c_h4_sigreg_a_1_a_0_leak_r2 >}}, VICReg {{< meta n.c_h4_vicreg
 In differences of differences, EMA's response is not different from KSD's
 ({{< meta n.c_h4_interaction_ema_a1_a0_ksd_a1_a0_leak_r2 >}}) or sliced KSD's
 ({{< meta n.c_h4_interaction_ema_a1_a0_sliced_ksd_a1_a0_leak_r2 >}}), and EMA's drop is larger than VICReg's
-({{< meta n.c_h4_interaction_ema_a1_a0_vicreg_a1_a0_leak_r2 >}}), SIGReg's and MMD's. EMA sits inside the
-range of the regularisers. The difference is at the middle level and in geometry: at α = 0.5 EMA leaks
-{{< meta n.shapes_ema_a05_leak_r2 >}} while sliced KSD, KSD and MMD leak
-{{< meta n.shapes_sksd_a05_leak_r2 >}}, {{< meta n.shapes_ksd_a05_leak_r2 >}} and
-{{< meta n.shapes_mmd_a05_leak_r2 >}}; and at α = 1 EMA's embedding has standard deviation
+({{< meta n.c_h4_interaction_ema_a1_a0_vicreg_a1_a0_leak_r2 >}}), SIGReg's
+({{< meta n.c_h4_interaction_ema_a1_a0_sigreg_a1_a0_leak_r2 >}}) and MMD's
+({{< meta n.c_h4_interaction_ema_a1_a0_mmd_a1_a0_leak_r2 >}}). The size of EMA's response thus differs from
+three of the five regularisers but lies inside their range, and its direction is shared by all; we read
+this as no *qualitative* difference. At α = 0.5 EMA leaks {{< meta n.shapes_ema_a05_leak_r2 >}}, close to
+VICReg ({{< meta n.shapes_vicreg_a05_leak_r2 >}}), while SIGReg leaks {{< meta n.shapes_sigreg_a05_leak_r2 >}}
+and sliced KSD, KSD and MMD leak {{< meta n.shapes_sksd_a05_leak_r2 >}},
+{{< meta n.shapes_ksd_a05_leak_r2 >}} and {{< meta n.shapes_mmd_a05_leak_r2 >}}, so the middle level
+separates sliced KSD, KSD and MMD from EMA and VICReg, with SIGReg between, rather than EMA from all
+regularisers. EMA does
+differ in geometry: at α = 1 its embedding has standard deviation
 {{< meta n.shapes_ema_emb_std_mean >}} and effective rank {{< meta n.shapes_ema_eff_rank >}}, against
 {{< meta n.shapes_sksd_eff_rank >}}–{{< meta n.shapes_sigreg_eff_rank >}} for the regularisers.
 
@@ -460,7 +485,8 @@ EMA alone leaks more than sliced KSD alone ({{< meta n.c_h5_ema_sliced_ksd_alone
 different from VICReg ({{< meta n.c_h5_ema_vicreg_alone_leak_r2 >}}; on kNN leakage EMA is higher,
 {{< meta n.c_h5_ema_vicreg_alone_leak_knn_r2 >}}). Adding sliced KSD to EMA raises leakage
 ({{< meta n.c_h5_emapsksd_ema_leak_r2 >}}); adding SIGReg gives
-{{< meta n.c_h5_emapsigreg_ema_leak_r2 >}}. Leakage is high for every temporal arm because the target
+{{< meta n.c_h5_emapsigreg_ema_leak_r2 >}}. Leakage is high for every temporal arm except sliced KSD
+alone ({{< meta n.temporal_sksd_leak_r2_ci >}}), plausibly because the target
 frame's nuisance is one ±1 step from the context, so it is predictable from the context and an encoder
 that keeps it lowers the prediction loss.
 
@@ -476,7 +502,7 @@ All {{< meta n.h6_tot_leak_r2 >}} contrasts (three autoencoders × seven JEPA ar
 leakage) are positive with intervals excluding zero ({{< meta n.h6_pos_leak_r2 >}} of
 {{< meta n.h6_tot_leak_r2 >}}), and so are {{< meta n.h6_pos_leak_knn_r2 >}} of
 {{< meta n.h6_tot_leak_knn_r2 >}} kNN contrasts (@tbl-vae, @fig-h5h6 right). The smallest gap is β-VAE
-against VICReg, {{< meta n.c_h6_betavae_ae_jepa_vicreg_leak_r2 >}}. H3's matched-prior question carries
+against VICReg, {{< meta n.c_h6_betavae_ae_jepa_vicreg_leak_r2 >}}. The matched-prior question of H3 carries
 over as a null-to-negative result: under the Laplace law, the Laplace-prior KSD autoencoder has lower
 identifiability than the Gaussian-prior one
 ({{< meta n.c_h6_ksd_ae_laplace_law_matched_laplace_prior_gaussian_prior_ident_orth_r2 >}}) and the same
@@ -529,7 +555,8 @@ The H3 result runs against the motivation for matched targets. Two explanations 
 data and we cannot separate them: KSD towards a Laplace target has little power at our batch size, so
 the matched arm receives a weak and noisy training signal; and the matched prior constrains all twelve
 coordinates while only two content factors follow the law. That full KSD towards $\mathcal N(0, I)$ is
-best at every law agrees with KerJEPA's use of full KSD [@zimmermann2026kerjepa] and suggests that, at
+best at every law is consistent with KerJEPA including unsliced KSD among its variants
+[@zimmermann2026kerjepa] and suggests that, at
 this scale, the quality of the training signal matters more than the shape of the target.
 
 Finally, the λ-sensitivity slice is the result we would most want a practitioner to see. A study that

@@ -321,6 +321,7 @@ def err(ax, x, r, m, a, label=True, **kw):
 
 def fig_views(seed=7):
     from stein.data import Shapes
+    import torch; torch.manual_seed(seed)  # images_for draws pixel noise from the global torch RNG
     sh = Shapes(law="uniform", seed=seed)
     alphas = [0.0, 0.5, 1.0]
     npair = 4

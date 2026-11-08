@@ -121,7 +121,9 @@ What the six contrasts show:
 - At five times its tuned $\lambda$, KSD leaks more than VICReg at VICReg's least-leaky level ({{< meta n.c_h1_lam_ksd_l_1_vicreg_l_1_its_least_leaky_level_leak_r2 >}}).
 - Pushing harder costs content: KSD's content $R^2$ falls from {{< meta n.lam_ksd_l02_content_r2 >}} at its tuned $\lambda$ to {{< meta n.lam_ksd_l5_content_r2 >}} at 25 times it.
 
-More distributional pressure buys more leakage, whatever the target. Tuning for content picked low-pressure levels for the KSD family, and that choice, not the Gaussian target, decides the comparison.
+- The VICReg baseline itself depends on the choice. Tuning picked VICReg's middle level, which leaks as much as its highest ({{< meta n.lam_vicreg_l5_leak_r2 >}} against {{< meta n.lam_vicreg_l25_leak_r2 >}}, and {{< meta n.lam_vicreg_l1_leak_r2 >}} at the lowest); against VICReg's least-leaky level, the tuned SIGReg leaks more ({{< meta n.c_h1_lam_sigreg_l_0_05_vicreg_l_1_its_least_leaky_level_leak_r2 >}}), which is the direction the hypothesis predicted.
+
+More distributional pressure buys more leakage, whatever the target. Tuning for content picked low-pressure levels for the KSD family and a high-leakage level for VICReg, and those choices, not the Gaussian target, decide the comparison.
 
 ### λ explorer
 
@@ -219,7 +221,7 @@ Things to try:
 
 - Set $\sigma = 0$, $\alpha = 1$ and compare $d = 3$ with $d = 24$: linear leakage is higher at $d = 24$ for every arm except the collapsed "none" baseline.
 - Set $\alpha = 1$ and $d = 12$ or $d = 24$, then compare $\sigma = 0$ with $\sigma = 1$: leakage is higher at $\sigma = 1$ for every arm except VICReg, and content is lower for every arm.
-- Set $d = 12$, $\sigma = 0$ and compare $\alpha = 0$ with $\alpha = 1$: leakage is lower at $\alpha = 1$ for every arm. When the nuisance never changes between views, nothing pushes the encoder to drop it.
+- Set $d = 12$, $\sigma = 0$ and compare $\alpha = 0$ with $\alpha = 1$: leakage is lower at $\alpha = 1$ for every arm, though VICReg's change is not distinguishable from zero. When the nuisance never changes between views, nothing pushes the encoder to drop it.
 - Turn on kNN leakage at the base setting: KSD, sliced KSD and MMD hold nuisance a linear probe cannot read.
 
 ```{ojs}
@@ -314,7 +316,7 @@ notRun = armOrder.filter(a => armSel.includes(a) && !cell.some(r => r.arm_name =
 - **Matched priors** (identifiability = how well a rotation and scaling of the embedding recovers the content factors). When the content factors follow a non-Gaussian law, KSD toward a matched prior does not beat KSD toward $N(0, I)$.
   - Uniform law: matched {{< meta n.shapes_ksd_prioruniform_ident_orth_r2_ci >}} vs Gaussian target {{< meta n.shapes_ksd_ident_orth_r2_ci >}}.
   - Laplace law: matched {{< meta n.shapes_ksd_lawlaplace_priorlaplace_ident_orth_r2_ci >}} vs Gaussian target {{< meta n.shapes_ksd_lawlaplace_ident_orth_r2_ci >}}.
-- **EMA under nuisance.** EMA's leakage responds to $\alpha$ like the regularisers' (difference from KSD's response: {{< meta n.c_h4_interaction_ema_a1_a0_ksd_a1_a0_leak_r2 >}}). Its geometry differs: effective rank (roughly, how many dimensions the embedding uses) is {{< meta n.shapes_ema_eff_rank >}} for EMA against {{< meta n.shapes_sigreg_eff_rank >}} for SIGReg.
+- **EMA under nuisance.** EMA's leakage falls with $\alpha$, as every regulariser's does. The size of its drop matches KSD's (difference: {{< meta n.c_h4_interaction_ema_a1_a0_ksd_a1_a0_leak_r2 >}}) and sliced KSD's, and is larger than VICReg's ({{< meta n.c_h4_interaction_ema_a1_a0_vicreg_a1_a0_leak_r2 >}}), SIGReg's and MMD's. Its geometry differs: effective rank (roughly, how many dimensions the embedding uses) is {{< meta n.shapes_ema_eff_rank >}} for EMA against {{< meta n.shapes_sigreg_eff_rank >}} for SIGReg.
 - **Temporal clips.** EMA alone leaks {{< meta n.temporal_ema_leak_r2_ci >}}, sliced KSD alone {{< meta n.temporal_sksd_leak_r2_ci >}}. Adding sliced KSD to EMA raises leakage by {{< meta n.c_h5_emapsksd_ema_leak_r2 >}}.
 - **Autoencoders.** β-VAE, KSD-AE and MMD-AE leak {{< meta n.vae_betavae_leak_r2 >}}, {{< meta n.vae_ksd_leak_r2 >}} and {{< meta n.vae_mmd_leak_r2 >}}. {{< meta n.h6_pos_leak_r2 >}} of {{< meta n.h6_tot_leak_r2 >}} autoencoder minus JEPA contrasts are positive; the smallest is β-VAE − VICReg, {{< meta n.c_h6_betavae_ae_jepa_vicreg_leak_r2 >}}.
 - **CIFAR-10.** Augmentation leakage is small for every arm, from {{< meta n.cifar_ksd_leak_r2 >}} (KSD) to {{< meta n.cifar_ema_leak_r2 >}} (EMA). KSD has the best linear class accuracy, {{< meta n.cifar_ksd_class_acc_ci >}}.
