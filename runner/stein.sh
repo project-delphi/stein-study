@@ -18,6 +18,11 @@ set -u -o pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$HERE/$(basename "${BASH_SOURCE[0]}")"
 W="${STEIN_WORKDIR:-$(dirname "$HERE")}"
+# A follow-up study keeps its control files (PROMPT.md, gates/, jobs/, logs/, state/, and so
+# its own ledger) in a subdirectory of the workspace: stein2.sh sets STEIN_SUBDIR=study2.
+S="${STEIN_SUBDIR:-}"; S="${S%/}"; S="${S:+$S/}"
+NAME="${STEIN_NAME:-Stein study}"
+CMD="${STEIN_CMD:-stein.sh}"                # the script the user typed, for messages
 STYLE_SRC="${STEIN_STYLE:-$HOME/Code/github.com/ml-blog/STYLE.md}"   # the blog's style guide
 KEY_FILE="${STEIN_KEY_FILE:-$HOME/.config/stein/anthropic_api_key}"
 PROMPT_SRC="${STEIN_PROMPT:-$HERE/stein_paper_prompt.md}"
@@ -34,7 +39,7 @@ BACKOFF_UNIT="${BACKOFF_UNIT:-60}"      # seconds per backoff step (tests shorte
 SKIP_SETUP="${SKIP_SETUP:-0}"           # 1: no venv and no data (runner self-test only)
 TOOLS="Read,Write,Edit,Bash,Glob,Grep,WebSearch,WebFetch,Task,Agent,ToolSearch,TodoWrite,TaskCreate,TaskGet,TaskList,TaskUpdate,TaskStop"
 
-LOGS="$W/logs"; RUNS="$LOGS/runs"; ST="$W/state"
+LOGS="$W/${S}logs"; RUNS="$LOGS/runs"; ST="$W/${S}state"
 PROGRESS="$LOGS/progress.log"; LEDGER="$ST/ledger.tsv"; PIDFILE="$ST/runner.pid"
 # Start a command as the leader of its own process group, so stopping it also stops
 # everything it spawned (Bash tools, worker pools). macOS has no setsid(1).
@@ -47,7 +52,7 @@ ok()   { printf 'ok    %s\n' "$*"; }
 warn() { printf 'warn  %s\n' "$*"; }
 die()  { printf 'error %s\n' "$*" >&2; exit 1; }
 log()  { mkdir -p "$LOGS"; printf '%s ==> %s\n' "$(date '+%H:%M:%S')" "$*" >> "$PROGRESS"; }
-notify() { osascript -e "display notification \"$1\" with title \"Stein study\"" >/dev/null 2>&1 || true; }
+notify() { osascript -e "display notification \"$1\" with title \"$NAME\"" >/dev/null 2>&1 || true; }
 nap()  { sleep "$1" & wait $! 2>/dev/null; }          # a sleep a signal can interrupt
 fadd() { awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { printf "%.4f", a + b }'; }
 fsub() { awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { printf "%.4f", a - b }'; }
@@ -59,7 +64,7 @@ nth()  { echo "$2" | awk -v i="$1" '{ print $(i + 1) }'; }
 alive() { [ -n "${1:-}" ] && kill -0 "$1" 2>/dev/null; }
 killgroup() { alive "${1:-}" || return 0; kill -TERM -"$1" 2>/dev/null || kill -TERM "$1" 2>/dev/null; }
 compute_hours() { case "$1" in 1) echo "${COMPUTE_HOURS_P1:-1}";; 2) echo "${COMPUTE_HOURS_P2:-6}";; *) echo 0;; esac; }
-phase_status() { [ -f "$W/gates/P$1.status" ] && tr -d '[:space:]' < "$W/gates/P$1.status" | tr '[:upper:]' '[:lower:]'; }
+phase_status() { [ -f "$W/${S}gates/P$1.status" ] && tr -d '[:space:]' < "$W/${S}gates/P$1.status" | tr '[:upper:]' '[:lower:]'; }
 on_power() { pmset -g batt 2>/dev/null | grep -q "AC Power"; }
 
 load_key() {   # the key file wins over the environment, so a stray exported key is not used
@@ -123,12 +128,12 @@ finalize_run() {   # finalize_run phase session raw: book a run's cost, exactly 
 
 # ---------------------------------------------------------------- workspace
 setup_workspace() {
-  mkdir -p "$W" "$RUNS" "$ST" "$W/gates" "$W/notes" "$W/results" "$W/jobs" "$W/paper" \
+  mkdir -p "$W" "$RUNS" "$ST" "$W/${S}gates" "$W/notes" "$W/results" "$W/${S}jobs" "$W/paper" \
            "$W/blog" "$W/ref" "$W/data/raw/mnist" "$W/.claude/agents" || die "cannot create $W"
   [ -d "$W/.git" ] || git -C "$W" init -q -b stein-study || die "git init failed in $W"
-  cp "$PROMPT_SRC" "$W/PROMPT.md" || die "cannot copy $PROMPT_SRC"
+  cp "$PROMPT_SRC" "$W/${S}PROMPT.md" || die "cannot copy $PROMPT_SRC"
   cp "$HERE/lit-reviewer.md" "$W/.claude/agents/lit-reviewer.md" || die "cannot copy lit-reviewer.md"
-  [ -f "$STYLE_SRC" ] && cp "$STYLE_SRC" "$W/ref/STYLE.md"
+  [ -z "$S" ] && [ -f "$STYLE_SRC" ] && cp "$STYLE_SRC" "$W/ref/STYLE.md"
   [ -f "$W/.gitignore" ] || cat > "$W/.gitignore" <<'EOF'
 data/
 .venv/
@@ -146,7 +151,8 @@ __pycache__/
 *.npz
 .DS_Store
 EOF
-  cat > "$W/CLAUDE.md" <<'EOF'
+  # Written once: a CLAUDE.md that is already there (edited since, or a follow-up study's) stays.
+  [ -f "$W/CLAUDE.md" ] || cat > "$W/CLAUDE.md" <<'EOF'
 # Stein/JEPA study workspace
 
 An unattended, multi-phase study runs here, driven by `runner/stein.sh`. The spec is
@@ -208,6 +214,8 @@ setup_venv() {
   fi
   "$py" -c 'import platform, torch; print(f"Python {platform.python_version()}, torch {torch.__version__}, MPS available: {torch.backends.mps.is_available()}.")' \
     > "$ST/env.txt" 2>/dev/null || die "the venv's torch does not import"
+  # A follow-up study shares the venv, so it takes the pinned commit from the first study's state.
+  [ -f "$ST/lejepa.sha" ] || cp "$W/state/lejepa.sha" "$ST/lejepa.sha" 2>/dev/null
   [ -f "$ST/lejepa.sha" ] && echo "lejepa from github.com/rbalestr-lab/lejepa at commit $(cut -c1-12 "$ST/lejepa.sha")." >> "$ST/env.txt"
   ok "venv: $(tr '\n' ' ' < "$ST/env.txt")"
 }
@@ -295,15 +303,15 @@ EOF
 
 fresh_message() {   # fresh_message phase allowance news-file: the first message of a session
   local n="$1" a="$2" news="$3"
-  cat "$W/PROMPT.md"
+  cat "$W/${S}PROMPT.md"
   printf '\n\n---\n\n# This run: P%s\n\n' "$n"
   if [ "$n" = 0 ]; then
     echo "This is the first session of the study. Do P0 only."
   else
-    echo "This is a fresh session for P$n. Earlier phases: $(earlier "$n"). Their results are on disk: start with gates/GATE_0.md to gates/GATE_$((n - 1)).md, and open other files only when you need them. Do P$n only."
+    echo "This is a fresh session for P$n. Earlier phases: $(earlier "$n"). Their results are on disk: start with ${S}gates/GATE_0.md to ${S}gates/GATE_$((n - 1)).md, and open other files only when you need them. Do P$n only."
   fi
-  if [ -f "$W/gates/GATE_$n.md" ]; then
-    printf '\nAn earlier session already worked on P%s and was cut off. Read gates/GATE_%s.md and check what is on disk before doing anything else, and do not redo finished work.\n' "$n" "$n"
+  if [ -f "$W/${S}gates/GATE_$n.md" ]; then
+    printf '\nAn earlier session already worked on P%s and was cut off. Read %sgates/GATE_%s.md and check what is on disk before doing anything else, and do not redo finished work.\n' "$n" "$S" "$n"
   fi
   if [ -s "$news" ]; then printf '\n## Since the last session\n\n'; cat "$news"; fi
   echo
@@ -396,18 +404,18 @@ run_compute() {   # run_compute phase news-file: run jobs/P<n>.sh within the all
   k=$(( $(cat "$ST/P$n.jobs" 2>/dev/null || echo 0) + 1 ))
   used=$(cat "$ST/P$n.compute_s" 2>/dev/null || echo 0)
   limit=$(awk -v h="$(compute_hours "$n")" -v u="$used" 'BEGIN { printf "%d", h * 3600 - u }')
-  if [ ! -f "$W/jobs/P$n.sh" ]; then
-    echo "You wrote \`compute\` to gates/P$n.status, but jobs/P$n.sh does not exist, so nothing ran. Write it and hand off again, or carry on without a handoff." > "$news"
-    : > "$W/gates/P$n.status"; return
+  if [ ! -f "$W/${S}jobs/P$n.sh" ]; then
+    echo "You wrote \`compute\` to ${S}gates/P$n.status, but ${S}jobs/P$n.sh does not exist, so nothing ran. Write it and hand off again, or carry on without a handoff." > "$news"
+    : > "$W/${S}gates/P$n.status"; return
   fi
   if [ "$k" -gt 2 ] || [ "$limit" -lt 300 ]; then
-    echo "Compute handoff refused: P$n has $( [ "$k" -gt 2 ] && echo "already used both of its handoffs" || echo "less than 5 minutes of compute allowance left"). Nothing ran. Work with the results on disk, record the shortfall in gates/GATE_$n.md, and carry on with P$n." > "$news"
-    : > "$W/gates/P$n.status"; return
+    echo "Compute handoff refused: P$n has $( [ "$k" -gt 2 ] && echo "already used both of its handoffs" || echo "less than 5 minutes of compute allowance left"). Nothing ran. Work with the results on disk, record the shortfall in ${S}gates/GATE_$n.md, and carry on with P$n." > "$news"
+    : > "$W/${S}gates/P$n.status"; return
   fi
   commit "P$n: before compute job $k"
   clog="$LOGS/compute-P$n-$k.log"
-  log "P$n: compute job $k started (allowance $(hrs "$limit") h); its log is logs/compute-P$n-$k.log"
-  ( cd "$W" && exec "${SETSID[@]}" env -u ANTHROPIC_API_KEY bash "jobs/P$n.sh" ) > "$clog" 2>&1 &
+  log "P$n: compute job $k started (allowance $(hrs "$limit") h); its log is ${S}logs/compute-P$n-$k.log"
+  ( cd "$W" && exec "${SETSID[@]}" env -u ANTHROPIC_API_KEY bash "${S}jobs/P$n.sh" ) > "$clog" 2>&1 &
   COMPUTE_PID=$!; echo "$COMPUTE_PID" > "$ST/compute.pid"
   start=$(date +%s); lastlog=$start
   while alive "$COMPUTE_PID"; do
@@ -428,12 +436,12 @@ run_compute() {   # run_compute phase news-file: run jobs/P<n>.sh within the all
   elapsed=$(( $(date +%s) - start )); echo $((used + elapsed)) > "$ST/P$n.compute_s"
   echo "$k" > "$ST/P$n.jobs"        # counted only once finished: a stopped runner reruns it
   log "P$n: compute job $k ended (exit $rc after $(hrs "$elapsed") h$( [ "$timed_out" = 1 ] && echo ", stopped at the allowance"))"
-  { echo "The runner ran compute job $k (\`bash jobs/P$n.sh\`): exit code $rc after $(hrs "$elapsed") h$( [ "$timed_out" = 1 ] && echo ", stopped because it reached this phase's compute allowance; whatever it finished is on disk")."
+  { echo "The runner ran compute job $k (\`bash ${S}jobs/P$n.sh\`): exit code $rc after $(hrs "$elapsed") h$( [ "$timed_out" = 1 ] && echo ", stopped because it reached this phase's compute allowance; whatever it finished is on disk")."
     echo "Compute left for this phase: $(hrs $((limit - elapsed))) h, and $((2 - k)) more handoff(s)."
-    echo "Full log: logs/compute-P$n-$k.log. Its last 40 lines:"
+    echo "Full log: ${S}logs/compute-P$n-$k.log. Its last 40 lines:"
     echo '```'; tail -n 40 "$clog" | cut -c1-300; echo '```'
     echo "Continue P$n."; } > "$news"
-  : > "$W/gates/P$n.status"
+  : > "$W/${S}gates/P$n.status"
 }
 
 commit() {   # commit message: snapshot the workspace; never fails the run
@@ -444,7 +452,7 @@ commit() {   # commit message: snapshot the workspace; never fails the run
         git reset -q -- "$f"; echo "/$f" >> .git/info/exclude
       fi
     done
-    git commit -q -m "$1" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" >/dev/null 2>&1 ) || true
+    git commit -q -m "${S:+${S%/}: }$1" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" >/dev/null 2>&1 ) || true
 }
 
 # ---------------------------------------------------------------- the phase loop
@@ -454,7 +462,7 @@ run_phase() {   # returns 0 to go on, 2 when blocked, 3 when the study must stop
   st=$(phase_status "$n")
   case "$st" in
     complete*|incomplete*) log "P$n: already $st; skipping"; return 0;;
-    blocked*) log "P$n: blocked (see gates/GATE_$n.md); the study cannot go on"; return 2;;
+    blocked*) log "P$n: blocked (see ${S}gates/GATE_$n.md); the study cannot go on"; return 2;;
   esac
   log "P$n: starting; it may spend $(usd "$(allowance "$n")") (study so far $(usd "$(spent)") of $(usd "$TOTAL_CAP"))"
   [ -f "$news" ] || : > "$news"
@@ -463,7 +471,7 @@ run_phase() {   # returns 0 to go on, 2 when blocked, 3 when the study must stop
     st=$(phase_status "$n")
     case "$st" in
       complete*) commit "P$n complete"; log "P$n: COMPLETE (phase spend $(usd "$(spent "$n")"))"; : > "$news"; return 0;;
-      blocked*)  commit "P$n blocked"; log "P$n: BLOCKED; read gates/GATE_$n.md"; return 2;;
+      blocked*)  commit "P$n blocked"; log "P$n: BLOCKED; read ${S}gates/GATE_$n.md"; return 2;;
       compute*)  run_compute "$n" "$news"; continue;;
     esac
     if ge "$(spent)" "$(fsub "$TOTAL_CAP" 0.5)"; then
@@ -474,9 +482,9 @@ run_phase() {   # returns 0 to go on, 2 when blocked, 3 when the study must stop
       if [ "$wrapped" = 0 ] && ge "$(fsub "$TOTAL_CAP" "$(spent)")" "$WRAP_BUDGET"; then
         wrapped=1; a=$WRAP_BUDGET
         log "P$n: phase budget used up; one wrap-up run (at most $(usd "$a"))"
-        echo "This phase's budget is spent. Start no new work. Make gates/GATE_$n.md an honest final record (done, not done, what the next phase needs to know), then write \`complete\` to gates/P$n.status if the next phase can build on what exists, or \`blocked\` if it cannot, and end the run." >> "$news"
+        echo "This phase's budget is spent. Start no new work. Make ${S}gates/GATE_$n.md an honest final record (done, not done, what the next phase needs to know), then write \`complete\` to ${S}gates/P$n.status if the next phase can build on what exists, or \`blocked\` if it cannot, and end the run." >> "$news"
       else
-        echo incomplete > "$W/gates/P$n.status"; commit "P$n incomplete"
+        echo incomplete > "$W/${S}gates/P$n.status"; commit "P$n incomplete"
         log "P$n: INCOMPLETE (out of budget); moving on"; : > "$news"; return 0
       fi
     fi
@@ -496,7 +504,7 @@ run_phase() {   # returns 0 to go on, 2 when blocked, 3 when the study must stop
       ok)
         if [ -z "$(phase_status "$n")" ]; then
           nudges=$((nudges + 1)); [ "$nudges" -gt 3 ] && force_wrap=1
-          echo "You ended the run, but gates/P$n.status is empty. If P$n is finished, finalise gates/GATE_$n.md and write the status. Otherwise carry on with P$n." > "$news"
+          echo "You ended the run, but ${S}gates/P$n.status is empty. If P$n is finished, finalise ${S}gates/GATE_$n.md and write the status. Otherwise carry on with P$n." > "$news"
         fi;;
       turns)  echo "The run reached its turn cap. Carry on with P$n where you left off." > "$news";;
       budget) : ;;                      # the next pass sees the allowance is gone
@@ -562,13 +570,13 @@ main_loop() {
     run_phase "$n"; rc=$?
     [ "$rc" -ne 0 ] && break
     if [ "$n" -ge "$STOP_AFTER" ] && [ "$n" -lt 4 ]; then
-      log "pausing after P$n as STOP_AFTER=$STOP_AFTER asks; ./stein.sh start carries on"
+      log "pausing after P$n as STOP_AFTER=$STOP_AFTER asks; ./$CMD start carries on"
       notify "P$n done; paused as asked"; cleanup; exit 0
     fi
     n=$((n + 1))
   done
   case "$rc" in
-    0) log "ALL PHASES DONE. Total spend $(usd "$(spent)"). Start with $W/FINAL.md"; notify "Study finished ($(usd "$(spent)"))";;
+    0) log "ALL PHASES DONE. Total spend $(usd "$(spent)"). Start with $W/${STEIN_FINAL:-FINAL.md}"; notify "Study finished ($(usd "$(spent)"))";;
     2) notify "Study blocked at P$n; see the progress log";;
     *) log "the study stopped at P$n"; notify "Study stopped at P$n; see the progress log";;
   esac
@@ -578,7 +586,7 @@ main_loop() {
 # ---------------------------------------------------------------- commands
 cmd_preflight() {
   local t avail
-  say "Preflight for the Stein study (workspace: $W)"
+  say "Preflight for $NAME (workspace: $W)"
   for t in claude jq git curl uv perl caffeinate uuidgen pmset; do
     command -v "$t" >/dev/null 2>&1 || die "missing tool: $t"
   done
@@ -599,9 +607,13 @@ cmd_preflight() {
 }
 
 cmd_start() {
-  local pid
+  local pid other
   pid=$(cat "$PIDFILE" 2>/dev/null)
-  alive "$pid" && die "already running (pid $pid); ./stein.sh status shows where it is"
+  alive "$pid" && die "already running (pid $pid); ./$CMD status shows where it is"
+  # Studies share the git index, the venv and runs/, so only one runner per workspace.
+  for other in "$W"/state/runner.pid "$W"/*/state/runner.pid; do
+    [ -f "$other" ] && alive "$(cat "$other" 2>/dev/null)" && die "another study's runner is live in this workspace ($other); stop it first"
+  done
   cmd_preflight
   if ! on_power && [ "${ALLOW_BATTERY:-0}" != 1 ]; then
     die "not on mains power. Plug in, or set ALLOW_BATTERY=1"
@@ -613,13 +625,13 @@ cmd_start() {
   alive "$pid" || die "the runner did not start; see $LOGS/runner.log"
   say ""
   say "Started (pid $pid). You can close this terminal; keep the Mac plugged in, awake and online."
-  say "  follow:  ./stein.sh watch     summary: ./stein.sh status     stop: ./stein.sh stop"
+  say "  follow:  ./$CMD watch     summary: ./$CMD status     stop: ./$CMD stop"
   say "  log:     $PROGRESS"
 }
 
 cmd_status() {
   local pid n st
-  [ -d "$ST" ] || die "no workspace at $W yet; run ./stein.sh preflight"
+  [ -d "$ST" ] || die "no workspace at $W yet; run ./$CMD preflight"
   pid=$(cat "$PIDFILE" 2>/dev/null)
   say "Workspace: $W"
   if alive "$pid"; then say "Runner:    running (pid $pid)"; else say "Runner:    not running"; fi
@@ -646,7 +658,7 @@ cmd_stop() {
   touch "$ST/STOP"; kill -TERM "$pid" 2>/dev/null
   while alive "$pid" && [ "$i" -lt 30 ]; do sleep 1; i=$((i + 1)); done
   alive "$pid" && kill -KILL "$pid" 2>/dev/null
-  say "Stopped. ./stein.sh start resumes where it left off."
+  say "Stopped. ./$CMD start resumes where it left off."
 }
 
 case "${1:-}" in
@@ -656,5 +668,5 @@ case "${1:-}" in
   watch)     [ -f "$PROGRESS" ] || die "no progress log yet at $PROGRESS"; tail -n 40 -F "$PROGRESS";;
   stop)      cmd_stop;;
   _loop)     main_loop;;
-  *)         sed -n '2,10p' "$SELF"; exit 1;;
+  *)         sed -n '2,10p' "$SELF" | sed "s|\./stein\.sh|./$CMD|"; exit 1;;
 esac

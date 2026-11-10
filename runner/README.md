@@ -105,3 +105,22 @@ All are environment variables, set on the `start` command line:
 
 To redo a phase, delete `gates/P<n>.status` in the workspace, plus `gates/GATE_<n>.md`
 for a clean slate, and run `./stein.sh start`.
+
+## Study 2: the follow-up
+
+`stein2.sh` runs the follow-up study in `stein2_prompt.md` with the same commands
+(`preflight`, `start`, `watch`, `status`, `stop`) and the same API key. It is a thin
+wrapper around `stein.sh`: it keeps its control files in `study2/` in the workspace
+(`PROMPT.md`, `gates/`, `jobs/`, `logs/`, `state/`), so the first study's gates and outputs
+stay as they are and the spend counter starts at zero.
+
+- **What it does.** P0 proves (or refutes) a small linear theory of why leakage rises with
+  λ and writes down predictions → P1 adds the code it needs → P2 tests the predictions on
+  3DShapes along whole λ paths (up to 6 h of compute) → P3 a 12-page paper in `paper2/` →
+  P4 review, including a proof referee. Results go to `theory/`, `results2/`, `paper2/`,
+  `REPRODUCE2.md` and `FINAL2.md`.
+- **Money.** Capped at $60 (`TOTAL_CAP`), with phase plans $13 / $12 / $9 / $12 / $8. The
+  first study spent $31 of its $90 cap.
+- **Git.** The runner commits to whatever branch is checked out, so make one first:
+  `git switch -c study2`.
+- To redo a phase, delete `study2/gates/P<n>.status` and run `./stein2.sh start`.
