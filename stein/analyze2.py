@@ -190,7 +190,10 @@ def main(argv=None):
     C = cells(df, rng)
     C.to_parquet(f"{a.out}/cells2.parquet", index=False)
     # thresholds: lambda paths only (sigma = 0, base law/prior, 2000 steps; arms with a path)
-    path = df[(df.sigma == 0) & (df.law == "uniform") & (df.prior == "gaussian") & (df.steps == 2000)]
+    # restricted to the registered lambda grids (E1, E2, E6 blocks), so that E5 cells sharing the
+    # base setting at off-grid lambdas (e.g. KSD 0.04, SIGReg 0.05, MMD 2) do not enter the paths
+    on_grid = df.blocks.str.contains(r"E1_|E2_|E6_", regex=True)
+    path = df[on_grid & (df.sigma == 0) & (df.law == "uniform") & (df.prior == "gaussian") & (df.steps == 2000)]
     T = pd.concat([thresholds(path, rng, "leak_r2", 0.10), thresholds(path, rng, "nuis_share", 0.05),
                    thresholds(path, rng, "leak_r2", 0.10, upward=True)], ignore_index=True)
     T.to_parquet(f"{a.out}/thresholds.parquet", index=False)
