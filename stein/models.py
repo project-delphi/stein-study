@@ -21,6 +21,28 @@ class Encoder(nn.Module):
         return self.head(self.conv(x))
 
 
+class LinearEncoder(nn.Module):
+    """Study 2: one linear map from the flattened input (pixels, or the synthetic (s, n)) to R^d."""
+
+    def __init__(self, d_in, d):
+        super().__init__()
+        self.lin = nn.Linear(d_in, d)
+
+    def forward(self, x):
+        return self.lin(x.flatten(1))
+
+
+class LinearPredictor(nn.Linear):
+    """Study 2: the theory's linear predictor W, initialised at I + 0.1 N(0, 1/d) (as in
+    theory/check_t1.py), bias 0."""
+
+    def __init__(self, d_in, d_out):
+        super().__init__(d_in, d_out)
+        with torch.no_grad():
+            self.weight.copy_(torch.eye(d_out, d_in) + 0.1 * torch.randn(d_out, d_in) / d_in ** 0.5)
+            self.bias.zero_()
+
+
 class Predictor(nn.Module):
     def __init__(self, d_in, d_out, hidden=256, norm="none"):
         super().__init__()

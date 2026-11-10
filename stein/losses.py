@@ -159,6 +159,30 @@ def vicreg_reg(z, gamma=1.0, eps=1e-4, cov_coeff=0.04):
     return var + cov_coeff * off.pow(2).sum() / d
 
 
+# ----------------------------------------------------------------------------- covariance penalties (study 2)
+
+def batch_cov(z):
+    """Centred unbiased batch covariance (N - 1 denominator)."""
+    zc = z - z.mean(0)
+    return zc.T @ zc / (z.shape[0] - 1)
+
+
+def cov_reg(z):
+    """Theory T1's penalty ||Sigma_hat - I||_F^2 (GATE_0 decision D4). Its expectation for
+    N(0, Sigma) samples is ||Sigma - I||_F^2 + (||Sigma||_F^2 + (tr Sigma)^2)/(N - 1)."""
+    C = batch_cov(z)
+    return (C - torch.eye(z.shape[1], device=z.device, dtype=z.dtype)).pow(2).sum()
+
+
+def cov_topk_reg(z, k):
+    """Study 2's E6 arm: the covariance penalty restricted to the top-k principal subspace,
+    sum_{i <= k} (ev_i - 1)^2 over the k largest eigenvalues of Sigma_hat; the remaining d - k
+    directions are unconstrained. Eigenvalues are computed in float64 on the CPU."""
+    C = batch_cov(z).cpu().double()             # device move first: MPS has no float64
+    ev = torch.linalg.eigvalsh(C).flip(0)[:k]
+    return (ev - 1).pow(2).sum().to(z.dtype).to(z.device)
+
+
 # ----------------------------------------------------------------------------- SIGReg (re-implementation, validated against lejepa)
 
 def epps_pulley(x, t_max=3.0, n_points=17):
@@ -196,11 +220,12 @@ class SIGReg(torch.nn.Module):
 # ----------------------------------------------------------------------------- dispatcher
 
 class Regulariser(torch.nn.Module):
-    """name in {none, vicreg, sigreg, sksd, ksd, mmd, oracle, ema}; law = target law for KSD/MMD."""
+    """name in {none, vicreg, sigreg, sksd, ksd, mmd, oracle, ema, cov, covk}; law = target law for
+    KSD/MMD; k = content dimension (oracle's rank, covk's constrained subspace)."""
 
     def __init__(self, name, d, law="gaussian", k=None, num_slices=64, oracle_eps=0.1):
         super().__init__()
-        self.name, self.d = name, d
+        self.name, self.d, self.k = name, d, k
         self.prior = Prior("rank_k", d=d, k=k, eps=oracle_eps) if name == "oracle" else Prior(law, d=d)
         self.num_slices = num_slices
         if name == "sigreg":
@@ -214,6 +239,10 @@ class Regulariser(torch.nn.Module):
             return z.new_zeros(())
         if n == "vicreg":
             return vicreg_reg(z)
+        if n == "cov":
+            return cov_reg(z)
+        if n == "covk":
+            return cov_topk_reg(z, self.k)
         if n == "sigreg":
             if self.sigreg_impl == "lejepa":
                 return self.sig(z)
