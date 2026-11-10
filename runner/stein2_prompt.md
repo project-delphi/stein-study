@@ -66,7 +66,7 @@ result. Report null and negative results as such.
   then resumes this session with the exit code and the tail of the job's log. It accepts
   at most two handoffs per phase. A job stopped by the allowance is not a failure: analyse
   what finished.
-- Be economical with tokens: the whole study has about half of study 1's planned budget.
+- Be economical with tokens: the whole study is capped at $60, two thirds of study 1's cap.
   Don't re-read large files (`results/analysis.md` is long: grep it), don't fetch whole
   PDFs, and write large outputs to files instead of printing them.
 - Python is `.venv/bin/python` only. Add packages with
@@ -144,6 +144,10 @@ conjecture: prove it, find the corrected statement, or refute it. State every as
   k-dimensional subspace and nuisance variance max(0, 1 − α/λ) on each of the remaining
   d − k directions. So nuisance enters only above a threshold **λ\* = α**, and then grows
   as 1 − α/λ.
+  Also solve the case **m < d − k**, which is the one the experiments are in: study 1's
+  nuisance code has 5 dimensions (`stein/data.py`), so d − k = 6 at d = 12 and 18 at
+  d = 24 exceed it. State what the minimisers do with the directions that neither content
+  nor nuisance can fill, and carry that case into every prediction.
   Corollaries to establish: (a) a linear probe's leakage R² is scale-invariant, so it is a
   **step** at λ\*, while the share of embedding variance explained by nuisance is
   continuous; (b) λ\* is proportional to α, and at α = 0 nuisance costs nothing at any
@@ -268,7 +272,8 @@ available.
   best content R² reachable under a leakage ceiling, not at a single λ.
 - **E2 — the theory's quantitative tests**, read off E1 plus the `linear`-encoder rung
   (cov and KSD, same λ grid, α ∈ {0.5, 1}): does λ̂\* scale with α; is there a threshold at
-  d = 6 ≤ k; does variance share follow 1 − λ\*/λ above the threshold while probe R² steps;
+  d = 6 ≤ k; does per-direction nuisance variance follow 1 − λ\*/λ above the threshold (and the
+  variance share the form that implies) while probe R² steps;
   do the per-regulariser thresholds order as c_reg predicts?
 - **E3 — why nuisance, when content would be free (T1d).** At two λ levels above the
   threshold, for KSD and SIGReg: training length 2000 against 8000 steps. Does leakage

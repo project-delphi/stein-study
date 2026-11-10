@@ -23,8 +23,9 @@ context is compacted. In short:
 
 ## State of the study
 
-All phases P0–P4 are `complete` (`gates/P*.status`); `FINAL.md` summarises the outcome. Work in an
-interactive session is therefore post-hoc edits to the paper, blog, or explainer, not a new phase.
+All phases P0–P4 of study 1 are `complete` (`gates/P*.status`); `FINAL.md` summarises the outcome. Work in
+an interactive session is therefore post-hoc edits to the paper, blog, or explainer, not a new phase. A
+headless session started by `runner/stein2.sh` is different: see "Study 2" below.
 Keep reported numbers traceable to `results/` via the generating scripts.
 
 ## Study 2 (follow-up: theory and its test)
@@ -33,8 +34,8 @@ Keep reported numbers traceable to `results/` via the generating scripts.
 `study2/PROMPT.md` (a copy of `runner/stein2_prompt.md`). When the runner's message is that spec,
 every rule above holds with these paths: gates are `study2/gates/GATE_<n>.md` and
 `study2/gates/P<n>.status`, jobs are `study2/jobs/P<n>.sh`, outputs go to `theory/`, `results2/`,
-`paper2/`, `REPRODUCE2.md` and `FINAL2.md`. Study 1's `gates/`, `results/`, `paper/`, `blog/`,
-`FINAL.md` and `REPRODUCE.md` are then a frozen record: read them, never write them. New config keys
+`paper2/`, `REPRODUCE2.md` and `FINAL2.md`. Study 1's `gates/`, `results/`, `paper/`, `blog/`, `explainer/`,
+`FINAL.md`, `REPRODUCE.md`, `PROMPT.md` and `notes/related_work.md` are then a frozen record: read them, never write them. New config keys
 must stay out of `cfg_hash` at their default value, so the cached `runs/` remain valid.
 
 ## Commands

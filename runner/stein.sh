@@ -22,6 +22,7 @@ W="${STEIN_WORKDIR:-$(dirname "$HERE")}"
 # its own ledger) in a subdirectory of the workspace: stein2.sh sets STEIN_SUBDIR=study2.
 S="${STEIN_SUBDIR:-}"; S="${S%/}"; S="${S:+$S/}"
 NAME="${STEIN_NAME:-Stein study}"
+CMD="${STEIN_CMD:-stein.sh}"                # the script the user typed, for messages
 STYLE_SRC="${STEIN_STYLE:-$HOME/Code/github.com/ml-blog/STYLE.md}"   # the blog's style guide
 KEY_FILE="${STEIN_KEY_FILE:-$HOME/.config/stein/anthropic_api_key}"
 PROMPT_SRC="${STEIN_PROMPT:-$HERE/stein_paper_prompt.md}"
@@ -132,7 +133,7 @@ setup_workspace() {
   [ -d "$W/.git" ] || git -C "$W" init -q -b stein-study || die "git init failed in $W"
   cp "$PROMPT_SRC" "$W/${S}PROMPT.md" || die "cannot copy $PROMPT_SRC"
   cp "$HERE/lit-reviewer.md" "$W/.claude/agents/lit-reviewer.md" || die "cannot copy lit-reviewer.md"
-  [ -f "$STYLE_SRC" ] && cp "$STYLE_SRC" "$W/ref/STYLE.md"
+  [ -z "$S" ] && [ -f "$STYLE_SRC" ] && cp "$STYLE_SRC" "$W/ref/STYLE.md"
   [ -f "$W/.gitignore" ] || cat > "$W/.gitignore" <<'EOF'
 data/
 .venv/
@@ -150,8 +151,8 @@ __pycache__/
 *.npz
 .DS_Store
 EOF
-  # A follow-up study leaves the workspace's own CLAUDE.md alone.
-  [ -n "$S" ] || cat > "$W/CLAUDE.md" <<'EOF'
+  # Written once: a CLAUDE.md that is already there (edited since, or a follow-up study's) stays.
+  [ -f "$W/CLAUDE.md" ] || cat > "$W/CLAUDE.md" <<'EOF'
 # Stein/JEPA study workspace
 
 An unattended, multi-phase study runs here, driven by `runner/stein.sh`. The spec is
@@ -213,6 +214,8 @@ setup_venv() {
   fi
   "$py" -c 'import platform, torch; print(f"Python {platform.python_version()}, torch {torch.__version__}, MPS available: {torch.backends.mps.is_available()}.")' \
     > "$ST/env.txt" 2>/dev/null || die "the venv's torch does not import"
+  # A follow-up study shares the venv, so it takes the pinned commit from the first study's state.
+  [ -f "$ST/lejepa.sha" ] || cp "$W/state/lejepa.sha" "$ST/lejepa.sha" 2>/dev/null
   [ -f "$ST/lejepa.sha" ] && echo "lejepa from github.com/rbalestr-lab/lejepa at commit $(cut -c1-12 "$ST/lejepa.sha")." >> "$ST/env.txt"
   ok "venv: $(tr '\n' ' ' < "$ST/env.txt")"
 }
@@ -567,7 +570,7 @@ main_loop() {
     run_phase "$n"; rc=$?
     [ "$rc" -ne 0 ] && break
     if [ "$n" -ge "$STOP_AFTER" ] && [ "$n" -lt 4 ]; then
-      log "pausing after P$n as STOP_AFTER=$STOP_AFTER asks; ./stein.sh start carries on"
+      log "pausing after P$n as STOP_AFTER=$STOP_AFTER asks; ./$CMD start carries on"
       notify "P$n done; paused as asked"; cleanup; exit 0
     fi
     n=$((n + 1))
@@ -604,9 +607,13 @@ cmd_preflight() {
 }
 
 cmd_start() {
-  local pid
+  local pid other
   pid=$(cat "$PIDFILE" 2>/dev/null)
-  alive "$pid" && die "already running (pid $pid); ./stein.sh status shows where it is"
+  alive "$pid" && die "already running (pid $pid); ./$CMD status shows where it is"
+  # Studies share the git index, the venv and runs/, so only one runner per workspace.
+  for other in "$W"/state/runner.pid "$W"/*/state/runner.pid; do
+    [ -f "$other" ] && alive "$(cat "$other" 2>/dev/null)" && die "another study's runner is live in this workspace ($other); stop it first"
+  done
   cmd_preflight
   if ! on_power && [ "${ALLOW_BATTERY:-0}" != 1 ]; then
     die "not on mains power. Plug in, or set ALLOW_BATTERY=1"
@@ -618,13 +625,13 @@ cmd_start() {
   alive "$pid" || die "the runner did not start; see $LOGS/runner.log"
   say ""
   say "Started (pid $pid). You can close this terminal; keep the Mac plugged in, awake and online."
-  say "  follow:  ./stein.sh watch     summary: ./stein.sh status     stop: ./stein.sh stop"
+  say "  follow:  ./$CMD watch     summary: ./$CMD status     stop: ./$CMD stop"
   say "  log:     $PROGRESS"
 }
 
 cmd_status() {
   local pid n st
-  [ -d "$ST" ] || die "no workspace at $W yet; run ./stein.sh preflight"
+  [ -d "$ST" ] || die "no workspace at $W yet; run ./$CMD preflight"
   pid=$(cat "$PIDFILE" 2>/dev/null)
   say "Workspace: $W"
   if alive "$pid"; then say "Runner:    running (pid $pid)"; else say "Runner:    not running"; fi
@@ -651,7 +658,7 @@ cmd_stop() {
   touch "$ST/STOP"; kill -TERM "$pid" 2>/dev/null
   while alive "$pid" && [ "$i" -lt 30 ]; do sleep 1; i=$((i + 1)); done
   alive "$pid" && kill -KILL "$pid" 2>/dev/null
-  say "Stopped. ./stein.sh start resumes where it left off."
+  say "Stopped. ./$CMD start resumes where it left off."
 }
 
 case "${1:-}" in
@@ -661,5 +668,5 @@ case "${1:-}" in
   watch)     [ -f "$PROGRESS" ] || die "no progress log yet at $PROGRESS"; tail -n 40 -F "$PROGRESS";;
   stop)      cmd_stop;;
   _loop)     main_loop;;
-  *)         sed -n '2,10p' "$SELF"; exit 1;;
+  *)         sed -n '2,10p' "$SELF" | sed "s|\./stein\.sh|./$CMD|"; exit 1;;
 esac
