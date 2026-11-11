@@ -298,3 +298,10 @@ def s2_membership():
 def s2_tiny():
     """Smoke test of the P2 job: first config of each block, seed 0, 30 steps (never reported)."""
     return [{**blk[0], "seed": 0, "steps": 30} for _, blk in s2_blocks()]
+
+
+def s2_fig_e4():
+    """Every run behind paper2's E4 figure (fig6_e4): the E4_noise block plus the sigma = 0 configs at the
+    same (arm, lambda), which belong to E1_core. Used by REPRODUCE2.md to re-run one figure from scratch."""
+    base = [_cfg(arm=a, lam=_r(l), **S2) for a, ls in E4_LAMS.items() for l in ls]
+    return _dedup([{**c, "seed": sd} for c in base for sd in HELD_SEEDS] + s2_block("E4_noise"))
