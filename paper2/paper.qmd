@@ -17,13 +17,18 @@ abstract: |
   threshold is $c_p\,\alpha(2-\alpha)/t^*_{\text{reg}}$, with a per-regulariser constant that we compute
   numerically. We registered 18 predictions before training any network and ran {{< meta n.n_runs >}}
   runs on {{< meta n.n_seeds >}} held-out seeds. The theory predicts the order of the thresholds
-  (SIGReg < KSD < sliced KSD < MMD) and their α(2−α) scaling. The measured thresholds come at
-  {{< meta n.ratio_lo >}}–{{< meta n.ratio_hi >}} times the predicted values (always early), and the theory fails at $d = k$, where leakage still appears. Leakage is
-  also a transient: at 8000 steps the network replaces nuisance with nonlinear content features, which our
-  own corollary allows and the linear model cannot produce. Compared along their whole λ paths instead of
-  at one tuned λ, the regularisers rank differently from the companion study's verdict. A matched prior
-  does raise a permutation-level metric (MCC) while orthogonal-fit $R^2$ is unchanged, as the theory
-  requires, but the gain is not where the theory placed it.
+  (SIGReg < KSD < sliced KSD < MMD) and that they are not proportional to α (ratios
+  {{< meta n.ar025_lo >}}–{{< meta n.ar025_hi >}} at α = 0.25, against 0.25). With the convolutional encoder the
+  measured thresholds come at {{< meta n.ratio_lo >}}–{{< meta n.ratio_hi >}} times the predicted values (always
+  early; with a linear pixel encoder, late). The theory fails at $d = k$, where leakage still appears, as it
+  does when the same training loop runs the linear model. Linear leakage is also a transient: by 8000 steps it
+  falls in all four tested cells, to about 0 in two, where the network fills the spare directions with
+  nonlinear content features, a route our corollary shows to be free for the covariance penalty. At the
+  higher λ levels nuisance stays decodable by kNN. Compared along their whole λ paths instead of
+  at one tuned λ, the regularisers rank differently from the companion study's verdict. At the uniform law
+  and study 1's λ, a matched prior raises a permutation-level metric (MCC) while orthogonal-fit $R^2$ is
+  unchanged, which the theory allows, but the gain is not confined to where the theory placed it; at the Laplace law the matched prior lowers
+  both.
 format:
   typst:
     papersize: us-letter
@@ -82,8 +87,9 @@ fill stay collapsed, and that the threshold needs a linear encoder (Corollary 1)
 $c_p\kappa/t^*_{\text{reg}}$ (Theorem 2). We compute $t^*_{\text{reg}}$ numerically for SIGReg, KSD, sliced
 KSD and MMD and find that it is set by the regulariser's slope at a collapsed direction, not by its
 curvature at $I$.
-(iii) Heuristic analyses of predictor-input noise and of what a matched prior can identify; the second is
-Comon's ICA theorem applied [@comon1994independent].
+(iii) A heuristic analysis of predictor-input noise (Heuristic 2), and a proved invariance result on what a
+Gaussian-target arm can identify (Proposition 3), with the matched-prior case taken from Comon's ICA
+theorem [@comon1994independent].
 (iv) 18 predictions registered before any network was trained, tested in {{< meta n.n_runs >}} runs on
 {{< meta n.n_seeds >}} held-out seeds, with arms compared along their whole λ path. Each prediction's
 outcome is reported, including the failures (@tbl-verdicts).
@@ -126,7 +132,7 @@ that neither content nor nuisance can fill stay collapsed at every λ.
 
 **Corollary 1.** (a) The population linear-probe $R^2$ of $n$ from $z$ is $r/m$ for $\lambda > \lambda^*$
 and 0 otherwise: it is scale-invariant, so it *steps* at $\lambda^*$. The nuisance share of embedding variance,
-$rv^*/(k + rv^*)$, is continuous and starts at 0. (b) $\lambda^* \propto \kappa$; at α = 0 nuisance is free.
+$rv^*/(k + rv^*)$, is continuous: it is 0 at $\lambda^*$ and rises from there. (b) $\lambda^* \propto \kappa$; at α = 0 nuisance is free.
 (c) For $d \le k$ there is no threshold. (d) *Linearity is needed.* If the encoder may also output $d - k$
 unit-variance functions of $s$ that are uncorrelated with $s$ and with each other, then $J = 0$ is reached
 with no nuisance, which is below every linear minimum. In a nonlinear network, leakage above $\lambda^*$ is
@@ -135,15 +141,21 @@ takes 320 values, so such functions exist; numerically $J$ = {{< meta n.nl_J_max
 of {{< meta n.nl_Jlin_min >}} or more.)
 
 **Heuristic 1 (empty-direction traps).** A direction $u$ with $\Sigma u = 0$ gives the predictor no
-gradient along $u$. Adding variance $v$ there changes $J$ by $v[c_p c(u) - 2\lambda] + \lambda v^2$, with
-$c(u) = \lVert Wu\rVert^2 - 2\rho\,u^\top W u + 1$ ($\rho = 1$ for content, $1-\alpha$ for nuisance). If $Wu = 0$, the
-direction is filled only above $c_p/2$, *whatever* α is. Full local minimality is not proved. In gradient
+gradient along $u$. For cov, adding variance $v$ there through a *fresh* signal (one uncorrelated with the
+current embedding) changes $J$ by $v[c_p c(u) - 2\lambda] + \lambda v^2$, with
+$c(u) = \lVert Wu\rVert^2 - 2\rho\,u^\top W u + 1$ ($\rho = 1$ for content, $1-\alpha$ for nuisance). (Copying content
+that is already encoded does not help: its cross-covariance enters $R$, and the slope is 0.) If $Wu = 0$, the
+direction is filled only above $c_p/2$ for cov, *whatever* α is; the other arms have an analogous point set by
+their slope at a collapsed direction. Full local minimality is not proved. In gradient
 descent, {{< meta n.traps_joint >}} jointly trained and {{< meta n.traps_fast >}} fast-predictor runs ended
-in such states. So the onset seen in training can lie anywhere between $c_p\alpha(2-\alpha)/2$ and $c_p/2$.
+in such states. So the onset seen in training can lie above the global threshold $c_p\alpha(2-\alpha)/2$, up to
+about $c_p/2$ for cov (more if $c(u) > 1$); at α = 1 the two coincide.
 
 **Theorem 2 (scale reduction; proved; constants numerical).** Let $R$ depend on $z$ only through Σ. This
 holds in population for every Gaussian-target arm when $z$ is Gaussian, and for the expected batch statistic
-at fixed batch size. Then the minimisers depend on $(\alpha, \lambda, c_p)$ only through
+at fixed batch size. In the linear model, $z$ is Gaussian for every $(A, B)$ only if $s$ and $n$ are, so for the
+kernel arms the theorem and the constants in @tbl-theory assume Gaussian $s$ and $n$ (cov needs no such
+assumption). 3DShapes content is discrete, so for the kernel arms these constants are approximations. Then the minimisers depend on $(\alpha, \lambda, c_p)$ only through
 $t = c_p\kappa/\lambda$, the nuisance variance of a minimiser is non-increasing in $t$, and the threshold is
 $\lambda^*_{\text{reg}} = c_p\kappa(\alpha)/t^*_{\text{reg}}$, where $t^*_{\text{reg}}$ depends only on
 $R, d, k, m$. With a learned predictor, every such arm has $\lambda^* \propto \alpha(2-\alpha)$.
@@ -153,13 +165,14 @@ Carlo. We then found $t^*$ by bisection on the global eigenvalue minimum and con
 descent on $(A, B)$ (@tbl-theory). The expected cov penalty includes a finite-batch term, which gives
 $t^*$ = {{< meta n.cov_tstar >}} instead of 2. A second-order expansion of each regulariser at $I$
 ("curvature at $I$") predicts $t^*$ badly: it is off by a factor of up to {{< meta n.tq_ksd >}} at $d = 12$
-and {{< meta n.tq_ksd_d24 >}} for KSD at $d = 24$. **That proxy is refuted.** For every arm $t^*$ agrees within
+and {{< meta n.tq_ksd_d24 >}} for KSD at $d = 24$. **That proxy is refuted.** At $d = 12$, for every arm $t^*$ agrees within
 {{< meta n.tloc_max >}}% with the value set by the regulariser's slope at a collapsed direction. Above the threshold,
 only cov follows $v = 1 - \lambda^*/\lambda$. The kernel arms rise more slowly: at $\lambda = 2\lambda^*$,
 $v$ = {{< meta n.th_ksd_v2 >}} (KSD), {{< meta n.th_sigreg_v2 >}} (SIGReg) and {{< meta n.th_mmd_v2 >}} (MMD),
 against 0.5 (@fig-theory a).
 
-**VICReg (heuristic).** Theorem 2 applies, but the variance term is a hinge. Content alone can satisfy it
+**VICReg (heuristic).** Theorem 2's reduction applies, but whether a threshold exists is not proved, and the
+variance term is a hinge. Content alone can satisfy it
 on all $d$ coordinates by spreading its rank-$k$ covariance as a tight frame, paying only the covariance term.
 In gradient descent no nuisance is bought up to λ = {{< meta n.vic_none_upto >}}, and the nuisance share is
 {{< meta n.vic_share10 >}} at λ = 10. We registered "≈ 7" as a low-confidence threshold.
@@ -184,14 +197,18 @@ does not satisfy the axis-alignment assumption, hence the label.
 
 **Proposition 3 (what a Gaussian target can identify; T4(i), proved).** For KSD with an IMQ kernel, MMD
 with a Gaussian kernel, sliced KSD and SIGReg with random directions, all targeting $\mathcal N(0, I)$, the
-regulariser is unchanged when $z$ is replaced by $Oz$ for any orthogonal $O$. With a final linear encoder layer
-and a predictor $W \mapsto OWO^\top$, the objective is $O(d)$-invariant, so its minimisers form unions of
+regulariser is unchanged when $z$ is replaced by $Oz$ for any orthogonal $O$ (for the sliced arms, in
+expectation over the random directions). With a final linear encoder layer, a predictor $W \mapsto OWO^\top$,
+and predictor-input noise that is absent or isotropic with fixed scale (batch-scaled noise, $\sigma^2\,\mathrm{diag}\,\Sigma$,
+is not isotropic; E5 uses σ = 0), the objective is $O(d)$-invariant, so its minimisers form unions of
 orbits. Orthogonally invariant metrics (probe $R^2$, $R^2$ after an orthogonal fit) are constant on an orbit.
 A permutation-level metric such as the mean correlation coefficient (MCC) is not fixed by the objective. A
 matched-prior arm whose minimiser lies in such an orbit cannot be told apart *on orthogonal-fit $R^2$*.
 **T4(ii)** is Comon's theorem [@comon1994independent, Thm 11]: if $s$ has independent non-Gaussian
 components (at most one Gaussian) and $z = Ms$ with orthogonal $M$ has independent components, then $M$ is a
-signed permutation. A matched product prior can therefore show its effect only on MCC. This needs
+signed permutation. So if a matched-prior arm's minimiser lies in the same orbit as a Gaussian arm's, its
+effect can show only on a permutation-level metric such as MCC. The proposition does not exclude that a
+matched prior moves training to a different orbit, which can change orthogonal-fit $R^2$ as well. This needs
 independent scalar factors. Study 1's hue is coded as (cos, sin), a dependent pair whose law is nearly
 rotation-invariant; scale is the one factor that fits.
 
@@ -208,7 +225,11 @@ synthetic linear-Gaussian views, reproduces Theorem 1. The onset lies between $0
 $1.25\lambda^*$ in both seeds, and per-direction nuisance variance is {{< meta n.val_v_q2 >}} at
 $2\lambda^*$ and {{< meta n.val_v_q5 >}} at $5\lambda^*$ against the finite-batch optimum
 {{< meta n.val_vref_q2 >}} and {{< meta n.val_vref_q5 >}} ({{< meta n.val_nlearn >}} runs within 0.03; the
-other run has one trapped empty direction, as in Heuristic 1).
+other run has one trapped empty direction, as in Heuristic 1). At $d = k = 6$ the same loop does *not* reach
+the global minimiser of Theorem 1(a): at $5\lambda^*$ and $20\lambda^*$ (λ\* of $d = 12$) it ends in
+{{< meta n.val_d6_q5 >}} and {{< meta n.val_d6_q20 >}} seeds with nuisance in place of one content direction
+(leakage {{< meta n.val_d6_leak >}}, content $R^2$ {{< meta n.val_d6_content >}}). We had written this check as a
+gate; it failed, and we report it as a non-global state that training reaches.
 
 # Predictions and experimental design {#sec-design}
 
@@ -241,7 +262,7 @@ the registered criterion; the statistic is from `results2/verdicts.json`. {#tbl-
 ![λ paths at the base setting (conv encoder, $d = 12$, α = 1). Lines show linear leakage $R^2$ (markers),
 nuisance variance share (dotted) and content $R^2$ (grey dashed); bars are 95% seed CIs. The dash-dotted
 line is the linear-model λ\*, and the coloured band is $\hat\lambda^*$ with its CI. MMD's lowest λ (mean
-leakage {{< meta n.p1_low_mmd >}}, a probe failure on collapsed seeds) is clipped at
+leakage {{< meta n.mmd_probe_fail >}}, a probe failure on collapsed seeds) is clipped at
 −0.05.](figures/fig2_paths.pdf){#fig-paths width=100%}
 
 {{< include _generated/tab_thresholds.md >}}
@@ -257,22 +278,24 @@ decades of λ (@fig-paths). Cov and VICReg do not: at their lowest λ, cov has e
 {{< meta n.low_vicreg_rank >}}. Yet the probe still reads leakage of {{< meta n.p1_low_cov >}} and
 {{< meta n.p1_low_vicreg >}} from these near-collapsed embeddings, as the scale invariance of
 Corollary 1(a) allows (@fig-theory b). Their thresholds are censored, and P1 fails by its registered
-criterion.
+criterion, by a margin of at most {{< meta n.p1_margin >}}, on near-collapsed embeddings.
 
 **Order confirmed; locations early (P2, P3).** The measured thresholds order as Theorem 2's constants:
 SIGReg < KSD < sliced KSD < MMD. The successive ratios are {{< meta n.p3_ksd_sigreg >}},
 {{< meta n.p3_sksd_ksd >}} and {{< meta n.p3_mmd_sksd >}}, and all CIs exclude 1. Locations are
 {{< meta n.ratio_lo >}}–{{< meta n.ratio_hi >}} times the linear model. SIGReg and MMD fall within the
 registered factor 3, while KSD ({{< meta n.ratio_ksd >}}) and sliced KSD ({{< meta n.ratio_sksd >}}) fall
-just outside it, so P2 is refuted. Every uncensored threshold is *earlier* than the linear model.
+just outside it (both CIs, {{< meta n.p2_ci_ksd >}} and {{< meta n.p2_ci_sksd >}}, include 1/3), so P2 is
+refuted on the point estimates. Every uncensored conv-encoder threshold is *earlier* than the linear model.
 
-**α scaling: α(2−α), not α (P4).** At α = 0.25 the ratio $\hat\lambda^*(\alpha)/\hat\lambda^*(1)$ is
+**α scaling: not proportional to α (P4).** At α = 0.25 the ratio $\hat\lambda^*(\alpha)/\hat\lambda^*(1)$ is
 {{< meta n.ar025_lo >}}–{{< meta n.ar025_hi >}} across the four kernel arms, with every CI above
 {{< meta n.ar025_cilo >}}. That is far from the 0.25 that $\lambda^* \propto \alpha$ requires, and close to
-the learned-predictor value 0.44 (@fig-scaling a; SIGReg {{< meta n.ar_sigreg_025 >}}, KSD
+the learned-predictor value 0.44, though not all CIs include it (@fig-scaling a; SIGReg {{< meta n.ar_sigreg_025 >}}, KSD
 {{< meta n.ar_ksd_025 >}}, sliced KSD {{< meta n.ar_sksd_025 >}}, MMD {{< meta n.ar_mmd_025 >}}). At α = 0.5,
-KSD ({{< meta n.ar_ksd_05 >}}) and sliced KSD ({{< meta n.ar_sksd_05 >}}) sit above 1, which is allowed by the
-trap mechanism's upper end but not monotone.
+KSD ({{< meta n.ar_ksd_05 >}}) and sliced KSD ({{< meta n.ar_sksd_05 >}}) have point estimates above 1, the
+bound set by the trap mechanism (Heuristic 1's escape point does not depend on α and equals the threshold at
+α = 1), though their CIs include 1; for these two arms the point estimates are not monotone in α.
 
 ![(a) Threshold ratio against α for the four kernel arms, with α(2−α) (Theorem 1, learned predictor),
 α (identity predictor) and 1 (trap escape, Heuristic 1). (b) Measured against predicted thresholds for
@@ -282,16 +305,17 @@ encoder.](figures/fig3_scaling.pdf){#fig-scaling width=100%}
 **$d = k$ is not threshold-free (P5, refuted).** At $d = 6$ all six arms reach leakage ≥ 0.10 (maxima
 {{< meta n.max6_lo >}}–{{< meta n.max6_hi >}}). Leakage is lower than at $d = 12$ at every shared λ, and
 onsets move up (KSD {{< meta n.lh6_ksd >}} vs {{< meta n.lh_ksd >}}; cov {{< meta n.lh6_cov >}}). Content
-$R^2$ falls as leakage rises: the network trades content for nuisance, which the linear model at $d \le k$
-never does because its content is free.
+$R^2$ falls as leakage rises: the network trades content for nuisance. The global minimiser of the linear
+model never does this, but the same training loop on the linear model does (Theory meets code), so the $d = k$
+leakage need not come from nonlinearity: the same training dynamics produce it in the linear model.
 
 **$d = 24$ (P6).** Wider embeddings lower the thresholds by more than predicted: the ratio is
 {{< meta n.d24_ksd >}} for KSD (predicted ≈ 0.63) and {{< meta n.d24_sigreg >}} for SIGReg and
 {{< meta n.d24_mmd >}} for MMD (predicted 0.9–1.2). The registered "against" criterion (< 0.6) is not met,
 but the point predictions miss.
 
-**Probe vs share (P7, weak).** The 10–90% rise is narrower for the probe than for the share in 4 of 6 arms.
-The difference is clear only for MMD ({{< meta n.p7_leak_mmd >}} vs {{< meta n.p7_share_mmd >}} decades).
+**Probe vs share (P7, inconclusive).** The 10–90% rise is narrower for the probe than for the share in
+{{< meta n.p7_narrower >}} of 6 arms, by small margins (probe-failure levels excluded).
 The share crosses 0.05 two to three times later than the probe crosses 0.10 (KSD {{< meta n.lhs_ksd >}} vs
 {{< meta n.lh_ksd >}}), so even a small nuisance variance is decodable.
 
@@ -300,7 +324,8 @@ The share crosses 0.05 two to three times later than the probe crosses 0.10 (KSD
 cov's ({{< meta n.lin_cov >}} {{< meta n.linci_cov >}}) is {{< meta n.lin_ratio_cov >}}×, and its α ratio is
 {{< meta n.lin_ar_cov >}}. Content is not a linear function of pixels, so content is not free for a pixel-linear
 map, and Theorem 1's premise fails at this rung. The KSD/cov ratio is {{< meta n.p10_lin >}} instead of
-> 5 (P10 refuted). Above the threshold, the linear-rung cov's per-direction ratio is
+> 5 (P10 refuted at this rung; at the conv encoder it is > {{< meta n.p10_conv_lb >}}, cov censored, consistent
+with P10). Above the threshold, the linear-rung cov's per-direction ratio is
 {{< meta n.p9_lin_v2 >}} at $2\hat\lambda^*$ and {{< meta n.p9_lin_v5 >}} at $5\hat\lambda^*$ (theory
 0.5 and 0.8). The conv-encoder cov reaches {{< meta n.p9_conv_v128 >}} at λ = 1.28, i.e. nuisance directions
 carry *more* variance than content directions, which is impossible in the linear model. The kernel arms rise
@@ -322,7 +347,7 @@ last. Above the thresholds the order changes again. At matched content $R^2$ = 0
 {{< meta n.fm05_mmd >}} for MMD and {{< meta n.fm05_sigreg >}} for SIGReg, but {{< meta n.fm05_ksd >}} for
 KSD. Which arm "leaks least" depends on the operating point, not on the target law.
 
-## Leakage is a transient of 2000-step training (E3)
+## Linear leakage is a transient of 2000-step training (E3)
 
 ![E3: KSD (λ 0.8, 3.2) and SIGReg (λ 0.08, 0.32), above their thresholds, at 2000 and 8000 steps.
 (a) Linear and kNN probes for leakage and content; (b) shares of embedding variance explained by the linear
@@ -336,9 +361,13 @@ in all four cells. From 2000 to 8000 steps, leakage changes by {{< meta n.e3_dle
 {{< meta n.e3_unexpl_share_ksd_08_2000 >}} to {{< meta n.e3_unexpl_share_ksd_08_8000 >}}, and linear content
 $R^2$ falls ({{< meta n.e3_content_r2_ksd_08_2000 >}} → {{< meta n.e3_content_r2_ksd_08_8000 >}}), while kNN
 content $R^2$ rises to {{< meta n.e3_content_knn_r2_ksd_08_8000 >}} and kNN leakage falls
-({{< meta n.e3_leak_knn_r2_ksd_08_2000 >}} → {{< meta n.e3_leak_knn_r2_ksd_08_8000 >}}). The network
-fills the spare directions with *nonlinear functions of content*. This is the zero-cost, nuisance-free
-solution of Corollary 1(d), which lies outside the linear model. The threshold therefore describes the
+({{< meta n.e3_leak_knn_r2_ksd_08_2000 >}} → {{< meta n.e3_leak_knn_r2_ksd_08_8000 >}}). At the higher λ levels kNN
+leakage stays high (KSD 3.2: {{< meta n.e3_leak_knn_r2_ksd_32_8000 >}}; SIGReg 0.32:
+{{< meta n.e3_leak_knn_r2_sigreg_032_8000 >}} at 8000 steps): there nuisance becomes less linearly accessible
+rather than absent. In the lower-λ cells the network
+fills the spare directions with *nonlinear functions of content*. This is the mechanism of Corollary 1(d),
+which lies outside the linear model; the corollary proves it zero-cost for cov only, and we have not shown
+that it is cheaper for KSD or SIGReg, whose targets a function of discrete content does not match exactly. The threshold therefore describes the
 regime that 2000-step training reaches, not an equilibrium of the network.
 
 ## Noise on the predictor input (E4)
@@ -349,14 +378,16 @@ input.](figures/fig6_e4.pdf){#fig-e4 width=100%}
 For KSD, batch-scaled σ raises leakage at both levels (P13): at λ = 0.1, σ = 1 adds
 {{< meta n.e4_ksd_01_batch10_d >}} and σ = 0.5 adds {{< meta n.e4_ksd_01_batch05_d >}}. That matches the
 registered pattern of an onset at σ = 1 but not at σ = 0.5 (P14, registered at $\hat\lambda^*(0)/2$; λ = 0.1 is
-about a third of $\hat\lambda^*(0)$). At λ = 0.2 the linear model predicts no
+about a third of $\hat\lambda^*(0)$). P14's threshold ratios $\lambda^*(\sigma)/\lambda^*(0)$ were not measured: E4 has
+no λ path under σ. At λ = 0.2 the linear model predicts no
 leakage, yet σ = 1 adds {{< meta n.e4_ksd_02_batch10_d >}}, so the size is wrong (P14). The content share
 does not fall as predicted ({{< meta n.e4_ksd_02_s0_cs >}} → {{< meta n.e4_ksd_02_batch05_cs >}} →
 {{< meta n.e4_ksd_02_batch10_cs >}}). Fixed-scale σ = 0.5 raises leakage *more* than batch-scaled σ = 0.5
 (fixed − batch {{< meta n.e4_ksd_01_fmb05_leak_r2 >}} at λ 0.1 and {{< meta n.e4_ksd_02_fmb05_leak_r2 >}} at
 0.2), the reverse of P15. Under fixed σ = 1, KSD shrinks the embedding (standard deviation
-{{< meta n.e4_ksd_01_s0_std >}} → {{< meta n.e4_ksd_01_fixed10_std >}}). VICReg shows no σ effect on
-leakage (all CIs include 0) and no inflation under fixed noise (fixed − batch standard deviation
+{{< meta n.e4_ksd_01_s0_std >}} → {{< meta n.e4_ksd_01_fixed10_std >}}). σ does not raise VICReg's
+leakage: all {{< meta n.e4_vic_nneg >}} contrasts with σ = 0 are negative ({{< meta n.e4_vic_dlo >}} to
+{{< meta n.e4_vic_dhi >}}), with CIs that include 0, and there is no inflation under fixed noise (fixed − batch standard deviation
 {{< meta n.e4_vicreg_125_fmb10_emb_std_mean >}}). The theory gets the sign right for KSD and nothing about
 VICReg.
 
@@ -367,29 +398,31 @@ VICReg.
 : E5: matched-prior KSD minus Gaussian-target KSD, mean [95% CI] over 5 seeds. Laplace pairs use study 1's
 selected levels (Gaussian 0.2 vs matched 1.0) and both divided by 5. {#tbl-e5}
 
-Orthogonal-fit $R^2$ shows no gain from the matched prior (P16 confirmed; @tbl-e5): the uniform-law
+Orthogonal-fit $R^2$ shows no gain from the matched prior (P16 not refuted; @tbl-e5): the uniform-law
 differences have CIs that include 0. At the Laplace law the matched arm loses content and leaks, and its
 orthogonal-fit $R^2$ is lower. MCC tells a different story. At the uniform law and λ = 0.2, the matched prior
 raises MCC by {{< meta n.e5_uniform_02_mcc >}} overall and by {{< meta n.e5_uniform_02_mcc_scale >}} on scale,
 the factor where T4 fits. It also raises MCC by {{< meta n.e5_uniform_02_mcc_hue >}} on the hue pair, which
-P17 said it would not. So the metric argument of Proposition 3 holds, and MCC sees what orthogonal-fit
-$R^2$ cannot. But the gain is not confined to the independent scalar factor, it vanishes at λ = 0.04, and it
+P17 said it would not. This is consistent with the metric argument of Proposition 3: MCC sees what orthogonal-fit
+$R^2$ does not. But the gain is not confined to the independent scalar factor, it vanishes at λ = 0.04, and it
 comes with more leakage ({{< meta n.e5_uniform_02_leak_r2 >}}) and less content
 ({{< meta n.e5_uniform_02_content_r2 >}}).
 
 # What the theory explains, and what it does not
 
 *Finding 1* is explained in form. Kernel arms have threshold-like onsets, their order follows the
-regulariser's slope at a collapsed direction, they scale as α(2−α) and they fall with $d$. The details are not
-explained: thresholds come at {{< meta n.ratio_lo >}}–{{< meta n.ratio_hi >}} times the prediction (always early), $d = k$ still leaks,
+regulariser's slope at a collapsed direction, their α ratios lie above α(2−α), near 1 or (two arms at α = 0.5) above it, and not ∝ α, and
+they fall with $d$. The details are not
+explained: conv-encoder thresholds come at {{< meta n.ratio_lo >}}–{{< meta n.ratio_hi >}} times the prediction (always early), $d = k$ still leaks,
 and a linear pixel encoder moves cov's threshold up by {{< meta n.lin_ratio_cov >}}×. Above all, the
 threshold is not an equilibrium. E3 shows the network leaving the nuisance solution for nonlinear content
-features, the possibility Corollary 1(d) leaves open. The theory says what the nonlinear network can do at zero
-cost, but not why 2000-step training first takes the nuisance route; simplicity bias [@shah2020pitfalls] is
+features, the possibility Corollary 1(d) leaves open (proved free for cov, not for the kernel arms). The theory says what the nonlinear network can do at zero
+cost (for cov), but not why 2000-step training first takes the nuisance route; simplicity bias [@shah2020pitfalls] is
 a candidate we did not test. *Finding 2* is explained in sign for KSD only. The size is wrong, the fixed/batch
-ordering is wrong, and VICReg does not respond to σ in this grid. *Finding 3* is explained as a metric
-artefact, in part. Orthogonal-fit $R^2$ cannot show a matched-prior gain, MCC does show one, but not in the
-cell the theory singled out. The theory is silent on kNN leakage, which is already {{< meta n.knn_below_lo >}}–{{< meta n.knn_below_hi >}}
+ordering is wrong, and σ does not raise VICReg's leakage in this grid. *Finding 3* is explained as a metric
+artefact, in part. Within one orbit, orthogonal-fit $R^2$ cannot show a matched-prior gain, and in the data it
+shows none. MCC does show one at the uniform law, though not only in the cell the theory singled out; at the
+Laplace law the matched prior lowers both metrics. The theory is silent on kNN leakage, which is already {{< meta n.knn_below_lo >}}–{{< meta n.knn_below_hi >}}
 for the kernel arms at levels where linear leakage is below 0.05, on content levels, and on the low-λ collapse that hides cov's and VICReg's thresholds.
 
 # Related theory
@@ -410,7 +443,7 @@ claim them only as derivations and tests in this setting. T4(ii) is Comon's theo
 [@comon1994independent]. Zimmermann et al. state the same orthogonal-versus-permutation dichotomy for contrastive
 learning, measured by $R^2$ and MCC [@zimmermann2021contrastive]. T4 is an analogue of their result, with
 the asymmetry placed in the regulariser's target law. Von Kügelgen et al. isolate content when the
-encoder dimension equals the content dimension [@vonkugelgen2021self], the $d \le k$ case of Theorem 1(a).
+encoder dimension equals the content dimension [@vonkugelgen2021self], the $d = k$ case of Theorem 1(a).
 Whether KSD with our surrogate scores vanishes only at the target [@gorham2017measuring] is assumed, not
 verified.
 
@@ -454,19 +487,22 @@ $\#\{i > k : \sigma_i > 0\} \le m$, $\sigma_i \ge 0$ and $\sigma$ sorted. Each s
 ($\sigma_i = 1$ for $i \le k$, $\sigma_i = v^*$ for $i > k$) is sorted because $v^* < 1$. Under the cardinality
 constraint, a bottom slot set to $v^*$ instead of 0 lowers $f$ by $(\lambda - c_p\kappa/2)^2/\lambda > 0$ when
 $\lambda > \lambda^*$. So exactly $r$ slots take $v^*$ when $\lambda > \lambda^*$ and none otherwise, which fixes the
-spectrum of every minimiser. It remains to identify $P$. Since $\kappa > 0$, $v^* < 1$, so the top eigenvalue 1 has a $k$-dimensional
+spectrum of every minimiser. (If $d \le k$ there are no slots $i > k$: the spectrum is all ones, Σ = $I_d$, and
+any optimal decomposition minimises tr $Q$; tr $P \le d$ = tr Σ is attained only with $Q = 0$, so $B = 0$ and
+$P = I_d$, which is part (a).) For $d > k$ it remains to identify $P$. Since $\kappa > 0$, $v^* < 1$, so the top eigenvalue 1 has a $k$-dimensional
 eigenspace. Any optimal decomposition minimises $\mathrm{tr}\,Q$, so
 $\mathrm{tr}\,P = k$ with $\lambda_i(P) \le 1$ and rank $P \le k$, which forces $k$ unit eigenvalues. For a unit
 eigenvector $u$ of $P$, $u^\top\Sigma u \ge u^\top P u = 1 = \sigma_1$, so $u$ lies in the eigenvalue-1 eigenspace.
 Hence $P = UU^\top$, and $Q = \Sigma - P = v^*VV^\top$ with $V \perp U$. For the learned predictor, any minimiser
-of $J$ attains $J_b$ (otherwise $J > \min J_b = \min J$), so the same structure holds. Part (a) is the case
-$r = 0$, $d \le k$, with $P = I_d$. ∎
+of $J$ attains $J_b$ (otherwise $J > \min J_b = \min J$), so the same structure holds. ∎
 
 **Proof of Corollary 1.** (a) The probe $R^2$ for $n_j$ is $(B^\top\Sigma^+B)_{jj}$, so the mean over $j$ is
 $\mathrm{tr}(\Sigma^+BB^\top)/m = \mathrm{tr}((UU^\top + VV^\top/v^*)\,v^*VV^\top)/m = r/m$ when $v^* > 0$, and 0
 when $B = 0$. The share is $\mathrm{tr}\,Q/\mathrm{tr}\,\Sigma = rv^*/(k + rv^*)$. (b), (c) follow from
-$\lambda^* = c_p\kappa/2$ and from $r = 0$ when $d \le k$. At α = 0, $\kappa = 0$ and any split with $P + Q = I$ is
-optimal. (d) Take $z = (s, g(s))$ with $g$ as stated. Then $\Sigma = I$, so $R = 0$, and $z = z'$, so the prediction
+$\lambda^* = c_p\kappa/2$ and from $r = 0$ when $d \le k$. At α = 0 (outside the model's range, taken as a
+limit), $\kappa = 0$, so $J = \lambda R$: the minimisers have $\min(d, k + m)$ unit eigenvalues and the rest 0, with any
+feasible split of Σ into $P$ and $Q$; nuisance costs nothing. (When $d > k + m$, $P + Q = I$ is not reachable and
+$\min J = \lambda(d - k - m) > 0$.) (d) Take $z = (s, g(s))$ with $g$ as stated. Then $\Sigma = I$, so $R = 0$, and $z = z'$, so the prediction
 loss is 0 and $J = 0$. For $d > k$ the linear minimum is $r[c_p\kappa v^* + \lambda(v^* - 1)^2] + \lambda(d - k - r) > 0$.
 With the identity predictor, $J = 0$ forces $\mathbb E\lVert z - z'\rVert^2 = 0$, so $z$ does not depend on the resampled
 nuisance. ∎
@@ -483,7 +519,9 @@ $\lambda^* = c_p\kappa/t^*$. ∎ That $t^*$ exists, is positive and finite, and 
 **Proof of Proposition 3.** The IMQ and Gaussian kernels are functions of $\lVert x - y\rVert$. The score of
 $\mathcal N(0, I)$, $-x$, is equivariant, so every term of the Stein kernel is built from inner products of
 $x$, $y$ and $x - y$, and $u(Ox, Oy) = u(x, y)$. MMD's target is invariant. The sliced statistics average over
-Haar-distributed directions, whose law is preserved by $g \mapsto O^\top g$. The prediction loss is invariant
+Haar-distributed directions, whose law is preserved by $g \mapsto O^\top g$, so they are invariant in expectation
+over the directions. Without noise, or with isotropic noise $\sigma\xi$ of fixed scale (whose law is
+rotation-invariant), the prediction loss is invariant
 under $z \mapsto Oz$, $W \mapsto OWO^\top$; an MLP predictor absorbs $O^\top$ and $O$ in its first and last
 linear layers, and the encoder's last linear layer absorbs $O$. ∎
 
@@ -491,7 +529,8 @@ linear layers, and the encoder's last linear layer absorbs $O$. ∎
 $(d, k, m)$ (including $d \le k$ and $m < d - k$), α ∈ {0.25, 0.5, 1} and λ/λ\* ∈ {0.5, 0.8, 1.25, 2, 5}, with
 both predictors and in minibatch training. `check_t2.py` validates the population regularisers by Monte
 Carlo and checks $t^*$ by gradient descent. `check_t4.py` finds rotation changes of the Gaussian-target
-estimators of |z| ≤ {{< meta n.t4_z_max >}} standard errors (KSD: relative change {{< meta n.t4_ksd_rel >}}),
+estimators of |z| ≤ {{< meta n.t4_z_max >}} standard errors for sliced KSD, SIGReg and MMD; KSD is invariant
+sample by sample (relative change {{< meta n.t4_ksd_rel >}}, floating-point error),
 against z = {{< meta n.t4_z_uni >}} for the uniform-prior KSD. For three independent sources, the matched
 Laplace prior reaches MCC {{< meta n.t4_mcc_lap >}} over three seeds, while the uniform surrogate stalls at a rotated
 solution (MCC {{< meta n.t4_mcc_uni >}}) whose KSD ({{< meta n.t4_ksd_fit >}}) exceeds that of the signed

@@ -25,7 +25,7 @@ The paper has no nuisance model, no regularisation-strength threshold, no kernel
   title     = {Contrastive and Non-Contrastive Self-Supervised Learning Recover Global and Local Spectral Embedding Methods},
   author    = {Randall Balestriero and Yann LeCun},
   booktitle = {Advances in Neural Information Processing Systems},
-  volume    = {36},
+  volume    = {35},
   year      = {2022},
   eprint    = {2205.11508},
   archivePrefix = {arXiv},
@@ -34,3 +34,7 @@ The paper has no nuisance model, no regularisation-strength threshold, no kernel
 }
 ```
 Fields from arXiv (title, authors, year, eprint, class, url) and the NeurIPS proceedings page (venue, 36th conference). The volume number is inferred from "36th Conference" in the search result and was not checked against the proceedings page.
+
+P4 correction (study 2 review): the volume was 36, inferred from "36th Conference". The empirical reviewer
+checked papers.nips.cc, which lists the paper in Advances in Neural Information Processing Systems 35
+(NeurIPS 2022), so the volume is now 35.

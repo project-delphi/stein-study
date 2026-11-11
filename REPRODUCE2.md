@@ -35,7 +35,15 @@ bash study2/jobs/P2.sh          # stein.sweep s2_all --workers 6, then stein.ana
 ```
 
 The cache is `runs/<cfg_hash>/result.json` (or `$STEIN_RUNS`), so finished runs are skipped. Training is
-deterministic on CPU: a re-run reproduces the stored metrics exactly (below).
+deterministic on Apple MPS, the device every stored run used (`device: mps` in each `result.json`): a re-run
+reproduces the stored metrics exactly (below). Other devices (CPU, CUDA) are untested and may differ in the
+last digits.
+
+Independent check (P4 review, `study2/review/EMPIRICAL_REVIEW.md`): `check_t1`–`check_t4` and
+`stein.validate2` were rerun and reproduced their JSON outputs except `runtime_s`. All 100 Figure 6 runs were
+rerun into an empty `STEIN_RUNS` and matched the stored results in every value (12,400 values, list metrics
+included). Rerunning `analyze2`, `verdicts2` and `report2` on them gave identical tables and an identical
+`fig6_e4.svg`, apart from SVG ids and the date stamp.
 
 ### Re-running one figure from scratch: Figure 6 (E4, noise on the predictor input)
 

@@ -1,0 +1,18 @@
+{
+ "wishart_mc_mean": 3.5782903901616168,
+ "wishart_mc_se": 0.00664392647910475,
+ "wishart_formula": 3.5753846153846154,
+ "cov_tstar_d12_k6_m5_N256": 1.9551968052967368,
+ "heur1_dup_content_dR_over_v_v=0.001": 0.001000000000139778,
+ "heur1_dup_content_dR_over_v_v=0.01": 0.009999999999976694,
+ "heur1_fresh_signal_dR_over_v_formula": "-2 + v (from the paper)",
+ "lemma1_remark_additive_2factor_true_cost": 0.75,
+ "lemma1_remark_claim_1-(1-a)^{2j}": 0.9375,
+ "cor1d_ksd_discrete_whitened_content_mean": 0.11214455450950873,
+ "cor1d_ksd_gaussian_reference_mean": 0.00014231458737938894,
+ "cor1d_cov_reg_discrete_whitened_content(N=1024)": 0.22055398549283362,
+ "prop3_ksd_rel_change_under_rotation": 0.0,
+ "prop3_batch_noise_pred_cost_axis_aligned": 3.27,
+ "prop3_batch_noise_pred_cost_rotated": 2.517347333506536,
+ "thm1_formula_lambda(d-k-r)_at_d<k": -1.0
+}

@@ -17402,5 +17402,5 @@
   "minibatch": 0.03,
   "zero_variance": 1e-06
  },
- "runtime_s": 238.75882291793823
+ "runtime_s": 269.1137981414795
 }

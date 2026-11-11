@@ -265,6 +265,27 @@ def numbers(C, T, F, RUNS, V, TH, VAL):
     put("p10_lin", ci(x["ratio"], *x["ci"], fmt=lambda v: f(v, 1)))
     x = V["P10"]["conv_share"]
     put("p10_share", ci(x["ratio"], *x["ci"], fmt=lambda v: f(v, 1)))
+    # --- added in P4 (review fixes)
+    for arm in KERN:
+        rc = V["P2"][arm].get("ratio_ci")
+        if rc:
+            put(f"p2_ci_{arm}", f"[{f(rc[0], 2)}, {f(rc[1], 2)}]")
+    put("p7_narrower", str(sum(V["P7"][a]["leak_steeper"] for a in ARMS)))
+    put("mmd_probe_fail", f(path(C, "mmd").leak_r2.min(), 2))  # MMD lambda 2.5 mean leakage (probe failure)
+    put("p1_margin", f(max(V["P1"][a]["leak_lowest"] for a in ("cov", "vicreg")) - 0.10, 3))
+    put("p10_conv_lb", f(V["P10"]["conv"]["num"][0] / V["P10"]["conv"]["den"][0], 1))
+    vd = [V["E4"][c][k]["leak_minus_sigma0"]["diff"] for c in V["E4"] if c.startswith("vicreg")
+          for k in V["E4"][c] if "leak_minus_sigma0" in V["E4"][c][k]]
+    put("e4_vic_nneg", f"{sum(x < 0 for x in vd)} of {len(vd)}")
+    put("e4_vic_dlo", fs(min(vd), 2))
+    put("e4_vic_dhi", fs(max(vd), 2))
+    d6 = VAL["A"]["d6"]
+    nr = VAL["A"]["d6_nuisance_runs"]
+    put("val_d6_q5", f"{nr['5.0']}/{sum(r['q'] == 5.0 for r in d6)}")
+    put("val_d6_q20", f"{nr['20.0']}/{sum(r['q'] == 20.0 for r in d6)}")
+    nz = [r for r in d6 if r["nuis_share"] > 0.05]
+    put("val_d6_leak", f"{f(min(r['leak_r2'] for r in nz), 2)}–{f(max(r['leak_r2'] for r in nz), 2)}")
+    put("val_d6_content", f"{f(min(r['content_r2'] for r in nz), 2)}–{f(max(r['content_r2'] for r in nz), 2)}")
     # P9
     P9 = V["P9"]
     put("p9_conv_v2", f(P9["cov|conv"]["v_at_2x_share_est"], 2))
@@ -396,7 +417,8 @@ def tables(C, T, V, TH):
     ev = {
         "P1": f"kernel arms rise within {f(min(P['P1'][a]['decades'] for a in KERN), 2)}–"
               f"{f(max(P['P1'][a]['decades'] for a in KERN), 2)} decades; cov, VICReg ≥ 0.10 at lowest λ",
-        "P2": f"KSD {f(P['P2']['ksd']['ratio'], 2)}×, sliced KSD {f(P['P2']['sksd']['ratio'], 2)}×, "
+        "P2": f"KSD {f(P['P2']['ksd']['ratio'], 2)}× [{f(P['P2']['ksd']['ratio_ci'][0], 2)}, {f(P['P2']['ksd']['ratio_ci'][1], 2)}], "
+              f"sliced KSD {f(P['P2']['sksd']['ratio'], 2)}× [{f(P['P2']['sksd']['ratio_ci'][0], 2)}, {f(P['P2']['sksd']['ratio_ci'][1], 2)}], "
               f"SIGReg {f(P['P2']['sigreg']['ratio'], 2)}×, MMD {f(P['P2']['mmd']['ratio'], 2)}×",
         "P3": "successive ratios " + ", ".join(f(P["P3"][k]["ratio"], 1) for k in ("ksd/sigreg", "sksd/ksd",
                                                                                   "mmd/sksd")) + "; CIs exclude 1",
@@ -407,10 +429,12 @@ def tables(C, T, V, TH):
         "P6": f"KSD {f(P['P6']['ksd']['ratio'], 2)}, SIGReg {f(P['P6']['sigreg']['ratio'], 2)}, "
               f"MMD {f(P['P6']['mmd']['ratio'], 2)}",
         "P7": f"probe narrower in {sum(P['P7'][a]['leak_steeper'] for a in ARMS)}/6 arms",
-        "P8": f"cov {f(P['P8']['cov']['ratio_to_theory'], 1)}×, KSD {f(P['P8']['ksd']['ratio_to_theory'], 2)}× theory",
+        "P8": f"cov {f(P['P8']['cov']['ratio_to_theory'], 1)}×, KSD {f(P['P8']['ksd']['ratio_to_theory'], 2)}× theory;"
+              f" α ratio cov {f(P['P8']['cov']['alpha_ratio']['ratio'], 2)}, KSD {f(P['P8']['ksd']['alpha_ratio']['ratio'], 2)}",
         "P9": f"linear-rung cov v = {f(P['P9']['cov|linear']['v_at_2x'], 2)} / {f(P['P9']['cov|linear']['v_at_5x'], 2)}"
               f" at 2/5 λ̂*",
-        "P10": f"linear rung {f(P['P10']['linear']['ratio'], 1)}",
+        "P10": f"linear rung {f(P['P10']['linear']['ratio'], 1)}; conv > "
+               f"{f(P['P10']['conv']['num'][0] / P['P10']['conv']['den'][0], 1)} (cov censored)",
         "P11": "8000 − 2000 steps: " + ", ".join(fs(P["E3"][c]["leak_8000_minus_2000"]["diff"], 2)
                                                 for c in P["E3"]),
         "P12": "unexplained share rises; kNN content R² → " + f(P["E3"]["ksd|0.8"]["content_knn_r2"]["8000"][0], 2),
@@ -436,10 +460,10 @@ def tables(C, T, V, TH):
     }
     verdict = {
         "P1": "refuted (cov, VICReg); step holds for kernel arms", "P2": "refuted", "P3": "confirmed (cov censored)",
-        "P4": "confirmed (4 kernel arms)", "P5": "refuted", "P6": "not refuted; point values miss",
-        "P7": "confirmed (weak)", "P8": "refuted (cov)", "P9": "inconclusive (cov); kernel part confirmed",
-        "P10": "refuted (linear rung)", "P11": "refuted", "P12": "–", "P13": "confirmed (leakage)",
-        "P14": "refuted in size", "P15": "refuted (KSD)", "P16": "confirmed", "P17": "refuted",
+        "P4": "confirmed at α = 0.25 (4 kernel arms); 2 above 1 at α = 0.5", "P5": "refuted", "P6": "not refuted; point values miss",
+        "P7": "inconclusive", "P8": "refuted (cov location and α ratio)", "P9": "cov not refuted (one range met per rung); kernel part confirmed",
+        "P10": "refuted (linear rung); consistent (conv)", "P11": "refuted", "P12": "–", "P13": "confirmed (leakage)",
+        "P14": "refuted in size", "P15": "refuted (KSD)", "P16": "not refuted", "P17": "refuted",
         "P18": "not tested",
     }
     rows = [[k, pred[k], verdict[k], ev[k]] for k in pred]

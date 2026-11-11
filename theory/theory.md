@@ -20,7 +20,10 @@ stop-gradient variant is not analysed). r := min(m, (d−k)₊).
 
 The **cov arm** (to be implemented in P1) is R_cov(z) = ‖Σ̂ − I‖²_F with Σ̂ the centred, unbiased batch
 covariance. For Gaussian z and batch N, E R_cov = ‖Σ − I‖²_F + (‖Σ‖²_F + (tr Σ)²)/(N − 1) (Wishart
-variances); the finite-N term shifts thresholds by < 3 % at N = 256 (`theory_t2.json`: t* = 1.952 vs 2).
+variances); the finite-N term shifts thresholds by < 3 % at N = 256 (`theory_t2.json`: t* = 1.952 vs 2,
+by bisection). [P4 note, from the proof referee, re-derived in P4: the spectral problem is convex, content
+eigenvalues sit at c = 1/(1 + (k+1)/(N−1)) and the slope at an empty slot gives t* = 2 − 2kc/(N−1) =
+1.9542 for k = 6, N = 256; the bisection value differs by 0.1 %, λ* = 0.0427 either way.]
 
 ## Lemma 1 (invariance cost)
 
@@ -39,7 +42,9 @@ Q̃ = Q̃² on range Σ. Then P̃ := Π − Q̃ is the complementary projector a
 So the invariance cost per unit of nuisance variance is κ = 2α (identity) or κ = α(2−α) (learned linear,
 attained when the predictor can separate content from nuisance). For any *nonlinear* predictor and any
 feature g of a single resampled factor, the best prediction of g(n′) from g(n) is (1−α)g(n), so the same
-α(2−α) per unit variance holds feature-wise (features of j factors cost 1 − (1−α)^{2j}).
+α(2−α) per unit variance holds feature-wise. [P4 correction: a pure-interaction feature of j factors costs
+1 − (1−α)^{2j}; an additive feature of j factors costs 1 − (1−α)², e.g. 0.75 rather than 0.9375 at α = 0.5,
+j = 2. Not used elsewhere.]
 
 ## T1 — covariance penalty: threshold. Status: **corrected and proved**
 
@@ -47,7 +52,8 @@ feature g of a single resampled factor, the best prediction of g(n′) from g(n)
 (a) d ≤ k: min J = 0; every global minimiser has B = 0 and AAᵀ = I_d.
 (b) d > k: every global minimiser has AAᵀ = U Uᵀ for some k-dim orthonormal U; if λ > λ* := c_pκ/2,
 BBᵀ = v*·VVᵀ with V an r-dim orthonormal set ⟂ U, and the remaining d − k − r directions have zero
-variance; if λ ≤ λ*, B = 0. min J = r[c_pκv* + λ(v* − 1)²] + λ(d − k − r).
+variance; if λ ≤ λ*, B = 0. min J = r[c_pκv* + λ(v* − 1)²] + λ(d − k − r)₊ (for d ≤ k: r = 0, min J = 0,
+P = I_d; proof of (a): the spectrum is all ones and tr P ≤ d = tr Σ is attained only with Q = 0).
 Thus λ* = c_p α for the identity predictor (the prompt's sketch, c_p = 1) but **λ* = c_p α(2−α)/2 for the
 learned linear predictor**, which is not proportional to α. With m < d − k the d − k − m unfillable
 directions are collapsed (variance 0) at every λ.
@@ -73,30 +79,42 @@ predictor), C (minibatch training in code units, N = 256: v = 0.466/0.760 vs fin
 (a) The population linear-probe R² of n from z is tr(BᵀΣ⁺B)/m = r/m if v* > 0 and 0 otherwise — a **step**
 at λ* (with m ≤ d − k it jumps from 0 to 1) because it is scale-invariant; the nuisance **variance
 share** r v*/(k + r v*) is continuous and 0 at λ*.
-(b) λ* ∝ κ: ∝ α (identity predictor) or ∝ α(2−α) (learned predictor). At α = 0 nuisance is free and
-P + Q = I with any split is optimal (minimiser not unique; check A_alpha0).
+(b) λ* ∝ κ: ∝ α (identity predictor) or ∝ α(2−α) (learned predictor). At α = 0 (a limit; the model has
+α ∈ (0, 1]) nuisance is free: J = λR, minimisers have min(d, k+m) unit eigenvalues and the rest 0, with any
+feasible split (not unique; check A_alpha0). [P4 correction: earlier text said "P + Q = I", which is
+unreachable when d > k + m, e.g. d = 12 > 11; there min J = λ(d − k − m) > 0.]
 (c) d ≤ k: no threshold, no nuisance at any λ.
 (d) (Linearity is needed.) If the encoder may also output d − k unit-variance functions of s uncorrelated
 with s and each other (available whenever the centred L²(s) has dimension ≥ d; 3DShapes content has
 10·8·4 = 320 values, so 319 dimensions), z = (s, g(s)) gives J = 0 < min J_linear with no nuisance;
 for the identity predictor every J = 0 solution has E‖z − z′‖² = 0, so z does not depend on n. Check D:
-J = 9e-16 vs linear minimum 9.5. So in a nonlinear network leakage above λ* is **not forced** by the
-cov objective; which zero-cost solution training finds is outside this theory.
+J = 9e-16 in one case (max over cases 9×10⁻⁷, as the paper reports) vs linear minimum 9.5. So in a nonlinear network leakage above λ* is **not forced** by the
+cov objective; which zero-cost solution training finds is outside this theory. [P4 note: (d) is proved for
+the covariance penalty only. For KSD/SIGReg a function of discrete content does not match N(0, I): the proof
+referee measured batch KSD 0.112 for whitened (s, g(s)) on 320 atoms vs 1.4×10⁻⁴ for Gaussian samples. So
+for the kernel arms (d) is a mechanism, not a zero-cost guarantee.]
 
 **Proposition 1 (empty-direction traps). Status: heuristic, numerically supported.** If a direction u
-is empty (Σu = 0) the predictor receives no gradient along u. Adding variance v along u (content or
-nuisance) changes J by v[c_p c(u) − 2λ] + λv² with c(u) = ‖Wu‖² − 2ρ uᵀWu + 1 (ρ = 1 for content,
+is empty (Σu = 0) the predictor receives no gradient along u. For cov, adding variance v along u through a
+*fresh* signal, uncorrelated with the current embedding (content or nuisance), changes J by v[c_p c(u) − 2λ] + λv² with c(u) = ‖Wu‖² − 2ρ uᵀWu + 1 (ρ = 1 for content,
 1 − α for nuisance), so this move is uphill when 2λ < c_p c(u). With Wu = 0 (as for the ridge-optimal or
 weight-decayed predictor) c(u) = 1 for both, so the escape point is λ_trap = c_p/2 — **independent of α**
 and above λ* = c_pα(2−α)/2 when α < 1. Full local minimality is not proved. Observed: 21/60 joint-W
 gradient-descent runs and 6/135 fast-predictor runs ended in such states; every one satisfied
 c(u) ≥ 2λ (`theory_t1.json`, B2_joint_W, B_traps). Consequence: the onset seen in training can lie
-anywhere between c_pα(2−α)/2 and c_p/2 (for cov), depending on the predictor's state in empty directions.
+above c_pα(2−α)/2, up to about c_p/2 for cov when Wu ≈ 0 (higher if c(u) > 1), depending on the predictor's
+state in empty directions; other arms have the analogous point c_p/t_loc. [P4 correction, from the proof
+referee: the fresh-signal condition was implicit. Copying content that is already encoded adds a
+cross-covariance to R and has slope 0, so in the linear model a trapped direction cannot be escaped that way.
+The escape point does not depend on α and equals the global threshold at α = 1, so it bounds the threshold
+ratio λ*(α)/λ*(1) at about 1.]
 
 ## T2 — other regularisers and the learned predictor. Status: scaling **proved**; constants **numerical**; quadratic proxy **refuted**; VICReg **heuristic**
 
 **Theorem 2 (scale reduction).** For any regulariser that depends on z only through Σ (every
-Gaussian-target arm when z is Gaussian, which it is in this model; VICReg in population), with the
+Gaussian-target arm when z is Gaussian, which in the linear model holds for every (A, B) only if s and n are
+Gaussian, so the kernel-arm constants below assume Gaussian s, n [P4 correction: earlier text said "which it
+is in this model", but the model only fixes means and covariances]; VICReg in population), with the
 identity or the learned linear predictor, min J = λ·min_σ [t Σ_{i>k} σᵢ + R(σ)] (for orthogonally
 invariant R; for general R the minimum is over Σ with the same spectral split), t := c_pκ/λ. Hence the
 set of minimisers depends on (α, λ, c_p) only through t, the threshold is
@@ -125,7 +143,7 @@ gradient descent on (A, B) at λ/λ* ∈ {0.6, 2, 5}, α ∈ {0.5, 1}, all PASS)
 
 d = 6 (= k): no threshold for any arm. The second-order "curvature at I" proxy (t_quad) misses t* by
 factors up to 5 (12 at d = 24 for KSD): **the threshold is set by the slope of R at a collapsed
-direction (t_loc), not by its curvature at I**; t* agrees with t_loc within 5 % for every arm (no
+direction (t_loc), not by its curvature at I**; t* agrees with t_loc within 5 % for every arm (≤ 2 % at d = 12, ≤ 3.9 % at d = 24; no
 first-order jump resolved). Above threshold, only cov follows v = 1 − λ*/λ; the kernel arms rise more
 slowly near λ* (KSD, d = 12: v = 0.22 at λ = 2λ* vs 0.5) and, at d = 24, exceed 1 (content and nuisance
 both inflate to compensate the collapsed directions). Under the trap mechanism (Prop. 1) the escape point
@@ -135,7 +153,8 @@ show leakage onset between λ = 0.2 and 1 (KSD), 0.01 and 0.05 (SIGReg), 10 and 
 KSD), and leakage already 0.17 at λ = 1 (VICReg); the linear values above fall inside the first three
 brackets, slightly above the fourth, and well above VICReg's.
 
-**VICReg.** Theorem 2 applies, so a threshold exists and scales with α(2−α). The hinge changes what sits
+**VICReg.** Theorem 2's reduction applies, so *if* a threshold exists it scales with α(2−α); its existence is
+not proved [P4 correction: earlier text said "so a threshold exists"]. The hinge changes what sits
 below it: content alone satisfies the variance term on all d coordinates by spreading its rank-k
 covariance as a tight frame (GD: all diagonals = 1.0, content eigenvalues d/k = 2), paying only the small
 covariance term, so nuisance is bought late (GD scan: none up to λ = 4.6, share 0.17 at λ = 10, 0.35–0.44 for
@@ -174,7 +193,9 @@ directions, all with target N(0, I), and any law of z: R(law of Oz) = R(law of z
 *Proof.* The IMQ and Gaussian kernels are functions of ‖x − y‖; the N(0, I) score −x is equivariant, so
 the Stein kernel satisfies u(Ox, Oy) = u(x, y) (each of its terms is built from inner products of x, y,
 x − y); MMD's target is invariant; sliced statistics average over Haar-distributed directions, and
-g ↦ Oᵀg preserves that law. ∎ The prediction loss is invariant under z → Oz, W → OWOᵀ, and the encoder's
+g ↦ Oᵀg preserves that law (so the sliced arms are invariant in expectation over directions). ∎ Without
+predictor-input noise, or with isotropic noise of fixed scale, the prediction loss is invariant under
+z → Oz, W → OWOᵀ [P4 condition: batch-scaled noise σ²·diag Σ breaks O(d) invariance for σ > 0; E5 uses σ = 0], and the encoder's
 last layer is linear, so the whole objective is O(d)-invariant and its minimiser set is a union of
 O(d)-orbits. Any O-invariant metric (linear-probe R², kNN R², R² after an orthogonal fit) is constant on
 an orbit; a non-invariant metric such as MCC is not determined by the objective at all. Hence orthogonal-fit
@@ -194,7 +215,8 @@ discrete, so no continuous prior is matched exactly and the minimum is not zero.
 independent sources. Laplace sources + Laplace prior: MCC = 1.00 in 2/3 seeds; uniform sources +
 uniform-surrogate prior: gradient descent stalled in all 3 seeds at a rotated solution (MCC 0.81–0.86) whose
 KSD (≈ 0.019) is 4× that of the signed permutation (≈ 0.0045) — the population claim holds, training
-misses it. Gaussian target: MCC 0.74–0.91 (arbitrary rotation), KSD of the fit equal to that of the
+misses it. Gaussian target: MCC 0.74–0.92 over every Gaussian-target fit (0.76–0.91 in
+`summary.gauss_target_mcc`, the range the paper quotes) (arbitrary rotation), KSD of the fit equal to that of the
 identity, orthogonal-fit R² = 1.00 for every arm.
 
 **Requirements on the content code.** Study 1 codes content as (cos h, sin h, scale, simplex₃(shape)).

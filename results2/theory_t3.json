@@ -1519,5 +1519,5 @@
  ],
  "pass": false,
  "tolerance": "SGD vs eigenvalue solution: content mean within 5%, nuisance mean within 0.05",
- "runtime_s": 1020.236741065979
+ "runtime_s": 1143.6524431705475
 }

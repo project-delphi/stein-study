@@ -106,6 +106,8 @@ def main():
         g = base(R, arm=a)
         lams, Y = mat(g, "leak_r2")
         m = Y.mean(0)
+        ok = m > -0.5  # P4 review: drop probe-failure levels (MMD lambda 2.5), as in P7 and report2
+        lams, m = lams[ok], m[ok]
         half = 0.5 * m.max()
         # last level below 0.10 before the first level reaching >= 50 % of max
         j = int(np.argmax(m >= half))
@@ -129,7 +131,10 @@ def main():
                                        frac_censored=float(np.mean(~np.isfinite(v[1]))))
                       for (a, k), v in LH.items()}
     OUT["P2"] = {a: dict(lam_hat=LH[(a, "d12a1")][0], theory=THEORY[a],
-                         ratio=(None if LH[(a, "d12a1")][0][1] else LH[(a, "d12a1")][0][0] / THEORY[a]))
+                         ratio=(None if LH[(a, "d12a1")][0][1] else LH[(a, "d12a1")][0][0] / THEORY[a]),
+                         # P4 review: CI of the ratio, from the threshold's bootstrap draws (finite draws only)
+                         ratio_ci=(None if LH[(a, "d12a1")][0][1] else
+                                   ci(np.exp(LH[(a, "d12a1")][1][np.isfinite(LH[(a, "d12a1")][1])]) / THEORY[a])))
                  for a in arms}
     OUT["P3"] = {f"{x}/{y}": ratio(LH[(x, "d12a1")], LH[(y, "d12a1")])
                  for x, y in [("sigreg", "cov"), ("ksd", "sigreg"), ("sksd", "ksd"), ("mmd", "sksd")]}
@@ -154,7 +159,12 @@ def main():
         g = base(R, arm=a)
         lams, L = mat(g, "leak_r2")
         _, S = mat(g, "nuis_share")
-        p7[a] = dict(width_leak=rise_width(lams, L.mean(0)), width_share=rise_width(lams, S.mean(0)))
+        # P4 review fix: drop probe-failure levels (mean leakage < -0.5, the filter report2 already uses for
+        # the figures). Without it MMD's lambda = 2.5 (one seed at R^2 = -38.7) became the path minimum and
+        # produced a spurious 0.25-decade probe width.
+        ok = L.mean(0) > -0.5
+        p7[a] = dict(width_leak=rise_width(lams[ok], L.mean(0)[ok]), width_share=rise_width(lams[ok], S.mean(0)[ok]),
+                     dropped_levels=[float(x) for x in np.asarray(lams)[~ok]])
         p7[a]["leak_steeper"] = bool(p7[a]["width_leak"] < p7[a]["width_share"])
     OUT["P7"] = p7
 

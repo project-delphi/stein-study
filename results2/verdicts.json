@@ -46,7 +46,7 @@
    "within_decade": true
   },
   "mmd": {
-   "leak_lowest": -7.74264,
+   "leak_lowest": 0.0038,
    "max": 0.42269,
    "lam_half": 20.0,
    "lam_last_below_0p10": 10.0,
@@ -424,7 +424,8 @@
     "<"
    ],
    "theory": 0.0427,
-   "ratio": null
+   "ratio": null,
+   "ratio_ci": null
   },
   "vicreg": {
    "lam_hat": [
@@ -432,7 +433,8 @@
     "<"
    ],
    "theory": 7.0,
-   "ratio": null
+   "ratio": null,
+   "ratio_ci": null
   },
   "sigreg": {
    "lam_hat": [
@@ -440,7 +442,11 @@
     ""
    ],
    "theory": 0.0389,
-   "ratio": 0.72412
+   "ratio": 0.72412,
+   "ratio_ci": [
+    0.67455,
+    0.83951
+   ]
   },
   "sksd": {
    "lam_hat": [
@@ -448,7 +454,11 @@
     ""
    ],
    "theory": 7.33,
-   "ratio": 0.29346
+   "ratio": 0.29346,
+   "ratio_ci": [
+    0.22162,
+    0.37818
+   ]
   },
   "ksd": {
    "lam_hat": [
@@ -456,7 +466,11 @@
     ""
    ],
    "theory": 0.939,
-   "ratio": 0.31565
+   "ratio": 0.31565,
+   "ratio_ci": [
+    0.28913,
+    0.36767
+   ]
   },
   "mmd": {
    "lam_hat": [
@@ -464,7 +478,11 @@
     ""
    ],
    "theory": 17.1,
-   "ratio": 0.7925
+   "ratio": 0.7925,
+   "ratio_ci": [
+    0.72978,
+    0.94592
+   ]
   }
  },
  "P3": {
@@ -1047,32 +1065,40 @@
   "cov": {
    "width_leak": 0.96369,
    "width_share": 0.93666,
+   "dropped_levels": [],
    "leak_steeper": false
   },
   "vicreg": {
    "width_leak": 0.82191,
    "width_share": 0.51471,
+   "dropped_levels": [],
    "leak_steeper": false
   },
   "sigreg": {
    "width_leak": 0.60148,
    "width_share": 0.62034,
+   "dropped_levels": [],
    "leak_steeper": true
   },
   "sksd": {
    "width_leak": 0.61609,
    "width_share": 0.73785,
+   "dropped_levels": [],
    "leak_steeper": true
   },
   "ksd": {
    "width_leak": 0.70313,
    "width_share": 0.73768,
+   "dropped_levels": [],
    "leak_steeper": true
   },
   "mmd": {
-   "width_leak": 0.25385,
+   "width_leak": 0.93216,
    "width_share": 0.8063,
-   "leak_steeper": true
+   "dropped_levels": [
+    2.5
+   ],
+   "leak_steeper": false
   }
  },
  "P8": {
