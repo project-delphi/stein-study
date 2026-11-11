@@ -158,6 +158,8 @@ SCHEMA = {
     "thresholds.parquet": "one row per setting x estimator: lam_hat (censor '<'/'>' when outside the grid), "
                           "bootstrap CI lo/hi (+-inf draws when censored), metric, tau, upward",
     "frontier.parquet": "best mean content R^2 over the lambda path subject to mean leak_r2 <= ceiling, with CI",
+    "verdicts.json": "written by stein/verdicts2.py: the statistic behind each pre-registered prediction P1-P17 "
+                     "(lambda_hat ratios with bootstrap CIs, E3/E4/E5 contrasts, leakage at matched content R^2)",
     "metrics": {
         "leak_r2 / content_r2": "linear ridge probe R^2 (mean over code dims), held out",
         "nuis_share / content_share": "fraction of total embedding variance explained by OLS on the linear "
