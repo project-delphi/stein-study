@@ -168,6 +168,32 @@ class Shapes:
         return x.reshape(*f.shape[:-1], 3, 32, 32)
 
 
+# ----------------------------------------------------------------------------- synthetic (study 2)
+
+SYNTH_M = 5
+SYNTH_IN = K_CONTENT + SYNTH_M
+
+
+class Synth:
+    """Study 2's linear-Gaussian model (theory/theory.md): x = (s, n), s ~ N(0, I_6) content,
+    n ~ N(0, I_5) nuisance; the second view keeps s and resamples each nuisance coordinate
+    independently with prob alpha, so Cov(n, n') = (1 - alpha) I."""
+
+    def __init__(self, seed=0):
+        self.g = torch.Generator().manual_seed(seed)
+
+    def sample(self, n):
+        s = torch.randn(n, K_CONTENT, generator=self.g)
+        nu = torch.randn(n, SYNTH_M, generator=self.g)
+        return s, nu
+
+    def sample_pair(self, n, alpha, device="cpu"):
+        s, n1 = self.sample(n)
+        res = torch.rand(n, SYNTH_M, generator=self.g) < alpha
+        n2 = torch.where(res, torch.randn(n, SYNTH_M, generator=self.g), n1)
+        return torch.cat([s, n1], 1).to(device), torch.cat([s, n2], 1).to(device)
+
+
 # ----------------------------------------------------------------------------- CIFAR-10
 
 AUG_NAMES = ["cx", "cy", "log_scale", "log_aspect", "flip", "brightness", "contrast", "saturation"]

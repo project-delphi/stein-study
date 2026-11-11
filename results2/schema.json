@@ -1,0 +1,17 @@
+{
+ "runs2.parquet": "one row per run: resolved config, `cell` (hash without seed), `blocks` (study-2 blocks containing the config), every metric of stein.train.evaluate (lists JSON-encoded)",
+ "cells2.parquet": "one row per config over seeds: mean and 95% seed-bootstrap CI (`_lo`, `_hi`) of METRICS",
+ "thresholds.parquet": "one row per setting x estimator: lam_hat (censor '<'/'>' when outside the grid), bootstrap CI lo/hi (+-inf draws when censored), metric, tau, upward",
+ "frontier.parquet": "best mean content R^2 over the lambda path subject to mean leak_r2 <= ceiling, with CI",
+ "verdicts.json": "written by stein/verdicts2.py: the statistic behind each pre-registered prediction P1-P17 (lambda_hat ratios with bootstrap CIs, E3/E4/E5 contrasts, leakage at matched content R^2)",
+ "metrics": {
+  "leak_r2 / content_r2": "linear ridge probe R^2 (mean over code dims), held out",
+  "nuis_share / content_share": "fraction of total embedding variance explained by OLS on the linear nuisance / content code, held out (raw units)",
+  "*_share_oh": "same with one-hot factor levels (additive per factor)",
+  "unexpl_share(_oh)": "1 - joint share of content and nuisance codes",
+  "nuis_eigs / content_eigs": "eigenvalues of the covariance of the code-explained part of z",
+  "nuis_dir_ratio": "mean of the top min(5, d-6) nuis_eigs / mean of the top min(6, d) content_eigs (theory: v = 1 - lam*/lam)",
+  "pc_var / pc_nuis_var / pc_content_var": "variance along the embedding's principal axes, total and explained by each code",
+  "mcc / mcc_per": "mean |corr| between embedding coordinates and the 6 content code dims after Hungarian matching; per code dim (cos hue, sin hue, scale, shape simplex x3)"
+ }
+}

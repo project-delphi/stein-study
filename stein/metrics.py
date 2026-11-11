@@ -119,3 +119,89 @@ def np_ksd(Z, law, n=500, n_gen=4000, n_null=50, n_coords=None, seed=0):
     null = [stat(prior.sample(len(X), d, dtype=torch.float64).numpy()) for _ in range(n_null)]
     p = (1 + np.sum(np.array(null) >= t)) / (1 + n_null)
     return float(t), float(p)
+
+
+# ----------------------------------------------------------------------------- study 2 metrics
+
+def ols_predict(Xtr, Ytr, Xte):
+    """Least-squares fit (with intercept) of Y on X on the fit set; predictions on the eval set."""
+    A = np.c_[Xtr, np.ones(len(Xtr))]
+    coef, *_ = np.linalg.lstsq(A, Ytr, rcond=None)
+    return np.c_[Xte, np.ones(len(Xte))] @ coef
+
+
+def variance_share(Zte, Zhat):
+    """Fraction of the embedding's total variance explained: 1 - sum|Z - Zhat|^2 / sum|Z - mean Z|^2
+    (raw embedding units, all coordinates pooled). Zhat = held-out OLS prediction of Z from a code."""
+    tot = ((Zte - Zte.mean(0)) ** 2).sum()
+    return float(1 - ((Zte - Zhat) ** 2).sum() / (tot + 1e-300))
+
+
+def explained_cov_eigs(Zhat):
+    """Eigenvalues (descending) of the covariance of the explained part Zhat: the per-direction
+    variance a code puts into the embedding (theory: eigenvalues of B B^T for nuisance, A A^T for content)."""
+    return np.linalg.eigvalsh(np.cov(Zhat.T)).clip(min=0)[::-1]
+
+
+def pc_decomposition(Zte, parts):
+    """Principal axes of Z (descending variance); for each axis u, var(u^T Z) and var(u^T P) for each
+    explained part P in `parts` (dict name -> Zhat)."""
+    C = np.cov(Zte.T)
+    ev, U = np.linalg.eigh(C)
+    U = U[:, ::-1]
+    out = {"pc_var": ev[::-1].clip(min=0)}
+    for k, P in parts.items():
+        out[f"pc_{k}_var"] = ((P - P.mean(0)) @ U).var(0, ddof=1)
+    return out
+
+
+def mcc(Z, S):
+    """Mean correlation coefficient: absolute Pearson correlations between embedding coordinates
+    (n, d) and content factors (n, k), best one-to-one matching (Hungarian); returns the mean over
+    matched pairs and the per-factor matched |corr| (NaN for a factor left unmatched when d < k)."""
+    from scipy.optimize import linear_sum_assignment
+    Zc = (Z - Z.mean(0)) / (Z.std(0) + 1e-12)
+    Sc = (S - S.mean(0)) / (S.std(0) + 1e-12)
+    R = np.abs(Zc.T @ Sc / len(Z))                      # (d, k)
+    ri, ci = linear_sum_assignment(-R)
+    per = np.full(S.shape[1], np.nan)
+    per[ci] = R[ri, ci]
+    return float(R[ri, ci].mean()), per
+
+
+def onehot(f, cols, sizes):
+    """One-hot coding of integer factor columns, first level dropped (additive factor model)."""
+    blocks = [np.eye(sizes[j])[f[:, j]][:, 1:] for j in cols]
+    return np.concatenate(blocks, 1)
+
+
+def study2_metrics(Ztr, Zte, Str, Ste, Ntr, Nte, OHtr=None, OHte=None, d=None, k=6, m=5):
+    """Study-2 metrics (eval_v = 2). S, N: linear content / nuisance codes; OH: optional pair of
+    (content one-hot, nuisance one-hot) arrays for the additive per-factor (nonlinear-in-code) shares."""
+    out = {}
+    Zs = ols_predict(Str, Ztr, Ste)
+    Zn = ols_predict(Ntr, Ztr, Nte)
+    Zsn = ols_predict(np.c_[Str, Ntr], Ztr, np.c_[Ste, Nte])
+    out["content_share"] = variance_share(Zte, Zs)
+    out["nuis_share"] = variance_share(Zte, Zn)
+    out["joint_share"] = variance_share(Zte, Zsn)
+    out["unexpl_share"] = 1 - out["joint_share"]
+    if OHtr is not None:
+        (Ctr, Ntr_oh), (Cte, Nte_oh) = OHtr, OHte
+        out["content_share_oh"] = variance_share(Zte, ols_predict(Ctr, Ztr, Cte))
+        out["nuis_share_oh"] = variance_share(Zte, ols_predict(Ntr_oh, Ztr, Nte_oh))
+        out["joint_share_oh"] = variance_share(Zte, ols_predict(np.c_[Ctr, Ntr_oh], Ztr, np.c_[Cte, Nte_oh]))
+        out["unexpl_share_oh"] = 1 - out["joint_share_oh"]
+    ne, ce = explained_cov_eigs(Zn), explained_cov_eigs(Zs)
+    out["nuis_eigs"], out["content_eigs"] = ne.tolist(), ce.tolist()
+    d = Zte.shape[1] if d is None else d
+    r = min(m, max(d - k, 0))
+    # theory's v = 1 - lam*/lam: mean variance per nuisance direction (top r) relative to the mean
+    # variance per content direction (top min(k, d)); undefined when d <= k
+    out["nuis_dir_ratio"] = float(ne[:r].mean() / (ce[:min(k, d)].mean() + 1e-300)) if r > 0 else float("nan")
+    out["total_var"] = float(np.trace(np.cov(Zte.T)))
+    for key, v in pc_decomposition(Zte, {"nuis": Zn, "content": Zs}).items():
+        out[key] = v.tolist()
+    out["mcc"], per = mcc(Zte, Ste)
+    out["mcc_per"] = per.tolist()
+    return out

@@ -196,3 +196,112 @@ def lam_sens():
             for sd in HELD_SEEDS:
                 cfgs.append(_cfg(arm=a, seed=sd, **lv))
     return _dedup(cfgs)
+
+
+# ============================================================================= study 2
+# Every study-2 run sets eval_v = 2 (new metrics; a new hash for configs that study 1 cached).
+
+S2 = dict(eval_v=2)
+
+
+def s2_pilot():
+    """P1 pilot (seed 0, never reported): timing of each new arm/encoder and a coarse lambda scan
+    at alpha = 1, d = 12 filling the gaps between the cached lambda-sensitivity levels."""
+    scan = dict(cov=[0.01, 0.02, 0.04, 0.08, 0.16, 0.32], sigreg=[0.005, 0.02, 0.1], ksd=[0.1, 0.4, 2.0],
+                sksd=[0.5, 2.5, 10.0], mmd=[5.0, 20.0, 100.0], vicreg=[0.05, 0.2, 0.5], covk=[0.04, 0.16])
+    cfgs = [_cfg(arm=a, lam=l, seed=0, **S2) for a, ls in scan.items() for l in ls]
+    cfgs += [_cfg(arm=a, lam=l, seed=0, encoder="linear", **S2) for a, ls in
+             dict(cov=[0.01, 0.04, 0.16], ksd=[0.2, 1.0, 5.0]).items() for l in ls]
+    cfgs += [_cfg(arm="ksd", lam=1.0, seed=0, sigma=1.0, noise_mode="fixed", **S2)]
+    return _dedup(cfgs)
+
+
+# ----------------------------------------------------------------------------- study 2 grids (P2)
+# lambda paths: 7 levels, factor 2 apart, placed from the P1 pilot (seed 0) and the linear-model
+# thresholds (GATE_0) so that each brackets the arm's onset (study2/gates/GATE_1.md).
+LAM2 = {
+    "cov":    [0.02 * 2 ** i for i in range(7)],      # 0.02 .. 1.28    theory 0.043
+    "sigreg": [0.005 * 2 ** i for i in range(7)],     # 0.005 .. 0.32   theory 0.039
+    "ksd":    [0.05 * 2 ** i for i in range(7)],      # 0.05 .. 3.2     theory 0.94
+    "sksd":   [0.625 * 2 ** i for i in range(7)],     # 0.625 .. 40     theory 7.3
+    "mmd":    [2.5 * 2 ** i for i in range(7)],       # 2.5 .. 160      theory 17
+    "vicreg": [0.3125 * 2 ** i for i in range(7)],    # 0.3125 .. 20    theory (4.6, 10], heuristic
+}
+LAM2["covk"] = LAM2["cov"]
+E1_ARMS = ["cov", "vicreg", "sigreg", "sksd", "ksd", "mmd"]
+# lambda-level indices used in the secondary E1 settings (5 or 4 of the 7, to fit the compute
+# allowance): lower alpha moves thresholds down (P4), d = 6 must cover where d = 12 leaks (P5),
+# d = 24 thresholds are predicted at 0.5-1.2 x the d = 12 ones (P6)
+E1_SECONDARY = {("alpha", 0.5): range(0, 5), ("d", 6): range(3, 7),
+                ("alpha", 0.25): range(0, 5), ("d", 24): range(1, 5)}
+# linear-encoder rung (E2): the E1 grid plus one level above (pilot: the linear encoder's onset lies
+# higher, cov > 0.16, KSD between 1 and 5)
+LAM2_LIN = {a: LAM2[a] + [LAM2[a][-1] * 2] for a in ("cov", "ksd")}
+E3_LAMS = {"ksd": [0.8, 3.2], "sigreg": [0.08, 0.32]}
+E4_LAMS = {"ksd": [0.1, 0.2], "vicreg": [1.25, 5.0]}
+E5_CELLS = [  # (arm, law, prior, study-1 selected lambda); each also at lambda / 5
+    ("ksd", "uniform", "gaussian", 0.2), ("ksd", "uniform", "uniform", 0.2),
+    ("sigreg", "uniform", "gaussian", 0.05), ("mmd", "uniform", "gaussian", 10.0),
+    ("ksd", "laplace", "gaussian", 0.2), ("ksd", "laplace", "laplace", 1.0),
+    ("sigreg", "laplace", "gaussian", 0.01), ("mmd", "laplace", "gaussian", 10.0),
+]
+
+
+def _r(x):
+    return round(x, 6)
+
+
+def s2_blocks():
+    """(block name, configs without seed), in priority order: the job runs blocks in this order,
+    all 5 seeds of a config together, so a job cut by the allowance leaves complete configs and the
+    blocks cut are the last ones (prompt's cut order: E6, E5, E4, d = 24, alpha = 0.25)."""
+    B = []
+    B.append(("E1_core", [_cfg(arm=a, lam=_r(l), **S2) for a in E1_ARMS for l in LAM2[a]]))
+    B.append(("E3_long", [_cfg(arm=a, lam=_r(l), steps=8000, **S2) for a, ls in E3_LAMS.items() for l in ls]))
+    B.append(("E2_linear", [_cfg(arm=a, lam=_r(l), encoder="linear", alpha=al, **S2)
+                            for al in (1.0, 0.5) for a in ("cov", "ksd") for l in LAM2_LIN[a]]))
+    for (key, val) in [("alpha", 0.5), ("d", 6), ("alpha", 0.25), ("d", 24)]:
+        idx = E1_SECONDARY[(key, val)]
+        B.append((f"E1_{key}{val}", [_cfg(arm=a, lam=_r(LAM2[a][i]), **{key: val}, **S2)
+                                     for a in E1_ARMS for i in idx]))
+    B.append(("E4_noise", [_cfg(arm=a, lam=l, sigma=s, noise_mode=m, **S2) for a, ls in E4_LAMS.items()
+                           for l in ls for s in (0.5, 1.0) for m in ("batch", "fixed")]))
+    B.append(("E5_ident", [_cfg(arm=a, law=law, prior=pr, lam=_r(l * f), **S2)
+                           for a, law, pr, l in E5_CELLS for f in (1.0, 0.2)]))
+    B.append(("E6_covk", [_cfg(arm="covk", lam=_r(l), **S2) for l in LAM2["covk"]]))
+    return B
+
+
+def s2_all():
+    cfgs = []
+    for _, blk in s2_blocks():
+        for c in blk:
+            for sd in HELD_SEEDS:
+                cfgs.append({**c, "seed": sd})
+    return _dedup(cfgs)
+
+
+def s2_block(name):
+    blk = dict(s2_blocks())[name]
+    return _dedup([{**c, "seed": sd} for c in blk for sd in HELD_SEEDS])
+
+
+def s2_membership():
+    """hash-without-seed -> list of study-2 blocks the config belongs to."""
+    out = {}
+    for name, blk in s2_blocks():
+        for c in blk:
+            out.setdefault(cfg_hash(resolve({**c, "seed": -1})), []).append(name)
+    return out
+
+
+def s2_tiny():
+    """Smoke test of the P2 job: first config of each block, seed 0, 30 steps (never reported)."""
+    return [{**blk[0], "seed": 0, "steps": 30} for _, blk in s2_blocks()]
+
+
+def s2_fig_e4():
+    """Every run behind paper2's E4 figure (fig6_e4): the E4_noise block plus the sigma = 0 configs at the
+    same (arm, lambda), which belong to E1_core. Used by REPRODUCE2.md to re-run one figure from scratch."""
+    base = [_cfg(arm=a, lam=_r(l), **S2) for a, ls in E4_LAMS.items() for l in ls]
+    return _dedup([{**c, "seed": sd} for c in base for sd in HELD_SEEDS] + s2_block("E4_noise"))

@@ -11,9 +11,10 @@ import torch
 import torch.nn.functional as F
 import yaml
 
-from .data import Shapes, Cifar, content_code, nuisance_code, K_CONTENT, SH
+from .data import (Shapes, Cifar, Synth, SYNTH_IN, SYNTH_M, content_code, nuisance_code, K_CONTENT, SH,
+                   CONTENT, NUISANCE, SIZES)
 from .losses import Regulariser, Prior
-from .models import Encoder, Predictor, Decoder, make_ema, ema_update
+from .models import Encoder, LinearEncoder, LinearPredictor, Predictor, Decoder, make_ema, ema_update
 from . import metrics as M
 
 DEFAULTS = dict(
@@ -26,13 +27,25 @@ DEFAULTS = dict(
     n_probe_fit=10000, n_probe_eval=5000, device="cpu", threads=1,
 )
 
+# Study-2 keys. Each is left out of cfg_hash while it has its default value, and each default
+# reproduces study 1's behaviour exactly, so the hashes of the cached runs/ are unchanged.
+HASH_OPTIONAL = dict(
+    encoder="conv",         # conv (study 1) | linear (one linear map from the input)
+    pred_arch="mlp",        # mlp (study 1) | linear (one linear map d -> d, the theory's W)
+    noise_mode="batch",     # batch: sigma * sd_batch(z) * xi (study 1) | fixed: sigma * xi
+    eval_v=1,               # 1: study-1 metrics | 2: + variance shares, MCC, per-direction variances
+)
+DEFAULTS.update(HASH_OPTIONAL)
+
 
 ARMS = {
     "shapes": {"none", "vicreg", "sigreg", "sksd", "ksd", "mmd", "ema", "oracle"},
     "cifar": {"none", "vicreg", "sigreg", "sksd", "ksd", "mmd", "ema", "oracle"},
     "temporal": {"ema", "ema+sksd", "ema+sigreg", "sksd", "vicreg", "sigreg", "none"},
     "vae": {"betavae", "ksd", "mmd"},
+    "synth": {"none", "cov", "covk", "vicreg", "sigreg", "sksd", "ksd", "mmd"},   # linear-Gaussian views
 }
+ARMS["shapes"] = ARMS["shapes"] | {"cov", "covk"}
 
 
 def resolve(cfg):
@@ -45,19 +58,31 @@ def resolve(cfg):
         raise ValueError(f"bad tier/arm {c['tier']}/{c['arm']}")
     if c["law"] not in ("uniform", "gaussian", "laplace") or c["prior"] not in ("uniform", "gaussian", "laplace"):
         raise ValueError("bad law/prior")
+    if c["encoder"] not in ("conv", "linear") or c["pred_arch"] not in ("mlp", "linear") \
+            or c["noise_mode"] not in ("batch", "fixed") or c["eval_v"] not in (1, 2):
+        raise ValueError("bad encoder/pred_arch/noise_mode/eval_v")
+    if c["tier"] == "synth" and c["encoder"] != "linear":
+        raise ValueError("synth tier needs encoder=linear")
+    if c["tier"] in ("vae", "temporal") and (c["encoder"] != "conv" or c["pred_arch"] != "mlp"):
+        raise ValueError("vae/temporal tiers support only the study-1 encoder and predictor")
     return c
 
 
 def cfg_hash(c):
-    keep = {k: v for k, v in c.items() if k not in ("device", "threads")}
+    keep = {k: v for k, v in c.items() if k not in ("device", "threads")
+            and not (k in HASH_OPTIONAL and v == HASH_OPTIONAL[k])}
     return hashlib.sha1(json.dumps(keep, sort_keys=True).encode()).hexdigest()[:12]
 
 
-def bottleneck(z, sigma):
+def bottleneck(z, sigma, mode="batch"):
     """Information bottleneck: additive Gaussian noise with per-dimension std = sigma times the
-    (detached) batch std of z, so the per-dimension SNR is 1/sigma^2 whatever the scale of z."""
+    (detached) batch std of z, so the per-dimension SNR is 1/sigma^2 whatever the scale of z.
+    mode='fixed' (study 2): noise std sigma in absolute units, so the encoder can raise the SNR by
+    scaling z up, against the regulariser."""
     if sigma <= 0:
         return z
+    if mode == "fixed":
+        return z + sigma * torch.randn_like(z)
     return z + sigma * z.detach().std(0, keepdim=True) * torch.randn_like(z)
 
 
@@ -80,13 +105,17 @@ def train(c, log_every=0):
     dev = torch.device(c["device"])
     tier, arm, d = c["tier"], c["arm"], c["d"]
     vae = tier == "vae"
-    enc = Encoder(d, c["ch"], c["hidden"], out_mult=2 if (vae and arm == "betavae") else 1).to(dev)
+    if c["encoder"] == "linear":
+        enc = LinearEncoder(SYNTH_IN if tier == "synth" else 3 * 32 * 32, d).to(dev)
+    else:
+        enc = Encoder(d, c["ch"], c["hidden"], out_mult=2 if (vae and arm == "betavae") else 1).to(dev)
     params = list(enc.parameters())
     if vae:
         dec = Decoder(d, c["ch"], c["hidden"]).to(dev); params += list(dec.parameters())
     else:
         pin = d * (c["T"] - 1) if tier == "temporal" else d
-        pred = Predictor(pin, d, c["hidden"], norm=c["pred_norm"]).to(dev)
+        pred = (Predictor(pin, d, c["hidden"], norm=c["pred_norm"]) if c["pred_arch"] == "mlp"
+                else LinearPredictor(pin, d)).to(dev)
     use_ema = arm == "ema" or arm.startswith("ema+")
     tgt = make_ema(enc) if use_ema else None
     reg_name = arm.split("+")[1] if arm.startswith("ema+") else arm
@@ -105,13 +134,18 @@ def train(c, log_every=0):
     else:
         plf = F.mse_loss
 
-    data = Cifar(seed=c["seed"], noise=c["noise"]) if tier == "cifar" else Shapes(c["law"], seed=c["seed"], noise=c["noise"])
+    if tier == "synth":
+        data = Synth(seed=c["seed"])
+    else:
+        data = Cifar(seed=c["seed"], noise=c["noise"]) if tier == "cifar" else Shapes(c["law"], seed=c["seed"], noise=c["noise"])
     hist = []
     t0 = time.time()
     for step in range(c["steps"]):
         B = c["batch"]
         if tier == "cifar":
             x1, x2, *_ = data.sample_pair(B, c["alpha"], dev)
+        elif tier == "synth":
+            x1, x2 = data.sample_pair(B, c["alpha"], dev)
         elif tier == "temporal":
             f = data.sample_clip_factors(B, c["T"], c["alpha"])
             X = data.images_for(f, dev)                       # (B, T, 3, 32, 32)
@@ -129,13 +163,13 @@ def train(c, log_every=0):
             else:
                 z = h
                 r = reg(z)
-            zb = bottleneck(z, c["sigma"])
+            zb = bottleneck(z, c["sigma"], c["noise_mode"])
             rec = F.mse_loss(dec(zb), x, reduction="none").sum((1, 2, 3)).mean()      # SSE per image
             p_loss = rec
         elif tier == "temporal":
             Tn = c["T"]
             z_all = enc(X.flatten(0, 1)).view(B, Tn, d)
-            ctx = bottleneck(z_all[:, :-1].reshape(B * (Tn - 1), d), c["sigma"]).view(B, (Tn - 1) * d)
+            ctx = bottleneck(z_all[:, :-1].reshape(B * (Tn - 1), d), c["sigma"], c["noise_mode"]).view(B, (Tn - 1) * d)
             if use_ema:
                 with torch.no_grad():
                     target = tnorm(tgt(X[:, -1]))
@@ -152,8 +186,8 @@ def train(c, log_every=0):
                     t1, t2 = tnorm(tgt(x1)), tnorm(tgt(x2))
             else:
                 t1, t2 = z1, z2
-            p_loss = 0.5 * (plf(pred(bottleneck(z1, c["sigma"])), t2)
-                            + plf(pred(bottleneck(z2, c["sigma"])), t1))
+            p_loss = 0.5 * (plf(pred(bottleneck(z1, c["sigma"], c["noise_mode"])), t2)
+                            + plf(pred(bottleneck(z2, c["sigma"], c["noise_mode"])), t1))
             r = 0.5 * (reg(z1) + reg(z2)) if reg_name not in ("none", "ema") else z1.new_zeros(())
         loss = p_loss + c["lam"] * r
         opt.zero_grad(set_to_none=True)
@@ -200,6 +234,18 @@ def evaluate(c, enc, data, hist):
         out["leak_r2"], per = M.ridge_r2(Za[:h], pa[:h], Za[h:], pa[h:])
         out["leak_r2_per"] = per.tolist()
         Zev = Zte
+    elif c["tier"] == "synth":
+        ev = Synth(seed=999)
+        (Str, Ntr), (Ste, Nte) = ev.sample(c["n_probe_fit"]), ev.sample(c["n_probe_eval"])
+        Ztr = embed_(enc, torch.cat([Str, Ntr], 1), dev)
+        Zte = embed_(enc, torch.cat([Ste, Nte], 1), dev)
+        Str, Ste, Ntr, Nte = (t.double().numpy() for t in (Str, Ste, Ntr, Nte))
+        out["content_r2"], per = M.ridge_r2(Ztr, Str, Zte, Ste); out["content_r2_per"] = per.tolist()
+        out["leak_r2"], per = M.ridge_r2(Ztr, Ntr, Zte, Nte); out["leak_r2_per"] = per.tolist()
+        out["ident_orth_r2"] = M.orth_identifiability(Zte, Ste)
+        if c["eval_v"] >= 2:
+            out.update(M.study2_metrics(Ztr, Zte, Str, Ste, Ntr, Nte, d=c["d"], k=K_CONTENT, m=SYNTH_M))
+        Zev = Zte
     else:
         ev = Shapes(c["law"], seed=999, noise=0.0)
         ftr = ev.sample_factors(c["n_probe_fit"], "train")
@@ -212,13 +258,18 @@ def evaluate(c, enc, data, hist):
         out["leak_knn_r2"] = M.knn_r2(Ztr, Ntr, Zte, Nte)
         out["shape_acc"] = M.logreg_acc(Ztr, ftr[:, SH], Zte, fte[:, SH])
         out["ident_orth_r2"] = M.orth_identifiability(Zte, Ste)
+        if c["eval_v"] >= 2:
+            oh = lambda f: (M.onehot(f, CONTENT, SIZES), M.onehot(f, NUISANCE, SIZES))
+            out.update(M.study2_metrics(Ztr, Zte, Str, Ste, Ntr, Nte, oh(ftr), oh(fte), d=c["d"],
+                                        k=K_CONTENT, m=Ntr.shape[1]))
         Zev = Zte
     out["eff_rank"] = M.effective_rank(Zev - Zev.mean(0))
     out["emb_std_mean"] = float(Zev.std(0).mean())
     out["gauss_ep_raw"], out["gauss_ep_std"] = M.gaussianity(Zev)
     if np.isfinite(Zev).all() and Zev.std() > 1e-8:
         out["ksd_prior"] = M.ksd_to_prior(Zev, c["prior"])
-        out["npksd_prior"], out["npksd_p"] = M.np_ksd(Zev, c["prior"], n=500, n_null=30)
+        if c["eval_v"] == 1:                        # not used in study 2 (eval_v = 2)
+            out["npksd_prior"], out["npksd_p"] = M.np_ksd(Zev, c["prior"], n=500, n_null=30)
     return out
 
 
